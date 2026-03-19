@@ -15,6 +15,16 @@ boolean snakeUnlocked = false;
 
 PFont mainFont;
 
+ArrayList<Flight> flights = new ArrayList<Flight>();
+ArrayList<Flight> filteredFlights = new ArrayList<Flight>();
+
+String selectedAirport = "JFK";   // sample default for Week 8 demo
+String startDate = "20220101";    // sample date range
+String endDate   = "20220131";
+
+boolean dataLoaded = false;
+String loadMessage = "Data not loaded yet.";
+
 void setup() {
   size(1200, 800);
   smooth(8);
@@ -24,7 +34,7 @@ void setup() {
 
   textAlign(CENTER, CENTER);
   rectMode(CORNER);
-
+  
   startButton = new Button(width/2 - 150, 320, 300, 60, "Start Exploring");
   infoButton  = new Button(width/2 - 150, 410, 300, 60, "Group Info");
   quitButton  = new Button(width/2 - 150, 500, 300, 60, "Exit");
@@ -33,6 +43,8 @@ void setup() {
   snakeButton = new Button(width/2 - 120, 590, 240, 55, "Play Snake");
 
   initSnakeGame();
+  loadFlightData("flights2k.csv");
+  filterFlightsByAirport(selectedAirport);
 }
 
 void draw() {
@@ -49,40 +61,6 @@ void draw() {
   }else if (currentScreen == 4) {
     //drawGraphScreen();
   }
-}
-
-void drawHomeScreen() {
-  fill(30, 60, 100);
-  noStroke();
-  rect(0, 0, width, 120);
-
-  fill(255);
-  textSize(36);
-  text("Flight Data Visualisation", width/2, 50);
-
-  textSize(18);
-  text("CSU11013 Group Project", width/2, 90);
-
-  fill(255);
-  stroke(180);
-  strokeWeight(2);
-  rect(width/2 - 350, 180, 700, 450, 20);
-
-  fill(40);
-  textSize(28);
-  text("Welcome", width/2, 230);
-
-  textSize(16);
-  text("Use this application to explore and visualise flight data.", width/2, 270);
-  text("Choose an option below to begin.", width/2, 300);
-
-  startButton.display();
-  infoButton.display();
-  quitButton.display();
-
-  fill(80);
-  textSize(14);
-  text("Created by Group 39", width/2, height - 30);
 }
 
 void drawResultsScreen() {
@@ -106,16 +84,42 @@ void drawResultsScreen() {
   textSize(22);
   text("Controls", 205, 190);
 
-  textSize(16);
-  text("Filters and buttons", 205, 230);
-  text("will go here.", 205, 260);
+  textSize(15);
+  text("Loaded: " + dataLoaded, 205, 235);
+  text("Airport filter: " + selectedAirport, 205, 270);
+  text("Flights loaded: " + flights.size(), 205, 305);
+  text("Flights shown: " + filteredFlights.size(), 205, 340);
 
+  textSize(13);
+  text("Week 8 demo:", 205, 390);
+  text("• CSV file read into Flight objects", 205, 420);
+  text("• Airport/date/lateness query outline", 205, 445);
+  text("• Results rendered on screen", 205, 470);
+
+  fill(40);
   textSize(22);
-  text("Visualisation Area", 745, 190);
+  text("Flight Data", 745, 190);
 
-  textSize(16);
-  text("Graphs, tables, and flight data", 745, 230);
-  text("will be displayed here.", 745, 260);
+  textSize(14);
+  if (!dataLoaded) {
+    text(loadMessage, 745, 240);
+  } else if (filteredFlights.size() == 0) {
+    text("No flights match current filter.", 745, 240);
+  } else {
+    text("Showing first 10 matching flights", 745, 230);
+
+    float startY = 270;
+    for (int i = 0; i < min(10, filteredFlights.size()); i++) {
+      Flight f = filteredFlights.get(i);
+
+      String line = f.flightDate + " | " +
+                    f.getFlightCode() + " | " +
+                    f.origin + " -> " + f.dest +
+                    " | Delay: " + f.getDepartureDelay();
+
+      text(line, 745, startY + i * 28);
+    }
+  }
 
   backButton.display();
   graphButton.display();
@@ -240,4 +244,35 @@ boolean isMouseOverText(float centerX, float centerY, float boxW, float boxH) {
          mouseX <= centerX + boxW/2 &&
          mouseY >= centerY - boxH/2 &&
          mouseY <= centerY + boxH/2;
+}
+
+void drawHomeScreen() {
+
+  fill(30, 60, 100);
+  noStroke();
+  rect(0, 0, width, 120);
+
+  fill(255);
+  textSize(36);
+  text("Flight Data Visualisation", width/2, 50);
+
+  textSize(18);
+  text("CSU11013 Group Project", width/2, 90);
+
+  fill(255);
+  stroke(180);
+  strokeWeight(2);
+  rect(width/2 - 350, 180, 700, 450, 20);
+
+  fill(40);
+  textSize(28);
+  text("Welcome", width/2, 230);
+
+  textSize(16);
+  text("Use this application to explore and visualise flight data.", width/2, 270);
+  text("Choose an option below to begin.", width/2, 300);
+
+  startButton.display();
+  infoButton.display();
+  quitButton.display();
 }

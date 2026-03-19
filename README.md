@@ -13,3 +13,4 @@ It allows users to load the provided dataset, explore flights, and view useful i
 - `main` contains the stable version of the project
 - each team member works on their own branch
 - changes are merged into `main` only when tested
+update

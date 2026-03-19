@@ -23,6 +23,7 @@ class Button {
 
     fill(255);
     textSize(18);
+    textAlign(CENTER, CENTER);
     text(label, x + w/2, y + h/2);
   }
 

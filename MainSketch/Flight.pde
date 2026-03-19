@@ -49,6 +49,10 @@ class Flight {
   }
 }
 
+// Global arrays populated by computeFlightsPerDate()
+String[] flightDates  = new String[0];
+int[]    flightCounts = new int[0];
+
 void loadFlightData(String filename) {
   String[] lines = loadStrings(filename);
 
@@ -73,6 +77,40 @@ void loadFlightData(String filename) {
   dataLoaded = true;
   loadMessage = "Loaded " + flights.size() + " flights from " + filename;
   println(loadMessage);
+
+  computeFlightsPerDate();
+}
+
+// Counts how many flights occur on each unique date and stores
+// the results in the global flightDates and flightCounts arrays.
+void computeFlightsPerDate() {
+  HashMap<String, Integer> dateCounts = new HashMap<String, Integer>();
+
+  for (Flight f : flights) {
+    // Strip the time from "01/01/2022 00:00" → "01/01/2022"
+    String dateStr = f.flightDate;
+    int spaceIdx = dateStr.indexOf(' ');
+    if (spaceIdx > 0) dateStr = dateStr.substring(0, spaceIdx);
+    dateStr = trim(dateStr);
+
+    if (dateCounts.containsKey(dateStr)) {
+      dateCounts.put(dateStr, dateCounts.get(dateStr) + 1);
+    } else {
+      dateCounts.put(dateStr, 1);
+    }
+  }
+
+  // Sort dates chronologically
+  flightDates = (String[]) dateCounts.keySet().toArray(new String[0]);
+  java.util.Arrays.sort(flightDates);
+
+  // Build the counts array in the same sorted order
+  flightCounts = new int[flightDates.length];
+  for (int i = 0; i < flightDates.length; i++) {
+    flightCounts[i] = dateCounts.get(flightDates[i]);
+  }
+
+  println("computeFlightsPerDate: found " + flightDates.length + " unique dates.");
 }
 
 void filterFlightsByAirport(String airport) {

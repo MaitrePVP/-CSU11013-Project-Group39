@@ -156,6 +156,7 @@ class BarChart {
 
   // Draws a small tooltip card with useful information about the hovered bar
   void drawTooltip(int index, int barWidth, float usableHeight) {
+    pushStyle();
     int barX = x + index * (barWidth + gap);
     float barHeight = (float(values[index]) / maxValue) * usableHeight;
     float barTop = y - barHeight;
@@ -205,6 +206,7 @@ class BarChart {
     text(valueText,   boxX + 12, boxY + 30);
     text(percentText, boxX + 12, boxY + 46);
     text(avgText,     boxX + 12, boxY + 62);
+    popStyle();
   }
 
   float getAverage() {

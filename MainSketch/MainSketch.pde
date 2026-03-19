@@ -25,6 +25,9 @@ String endDate   = "20220131";
 boolean dataLoaded = false;
 String loadMessage = "Data not loaded yet.";
 
+// Bar chart for flights-per-date view
+BarChart flightDateChart;
+
 void setup() {
   size(1200, 800);
   smooth(8);
@@ -45,6 +48,7 @@ void setup() {
   initSnakeGame();
   loadFlightData("flights2k.csv");
   filterFlightsByAirport(selectedAirport);
+  buildFlightDateChart();
 }
 
 void draw() {
@@ -59,7 +63,7 @@ void draw() {
   } else if (currentScreen == 3) {
     drawSnakeScreen();
   }else if (currentScreen == 4) {
-    //drawGraphScreen();
+    drawGraphScreen();
   }
 }
 
@@ -210,6 +214,10 @@ void mousePressed() {
     if (backButton.isMouseOver()) {
       currentScreen = 0;
     }
+  } else if (currentScreen == 4) {
+    if (backButton.isMouseOver()) {
+      currentScreen = 1;
+    }
   }
 
   updateSnakeUnlock();
@@ -275,4 +283,53 @@ void drawHomeScreen() {
   startButton.display();
   infoButton.display();
   quitButton.display();
+}
+
+// ---------------------------------------------------------------------------
+//  Graph screen — bar chart of flights per date
+// ---------------------------------------------------------------------------
+
+// Reads the global flightDates / flightCounts arrays produced by
+// computeFlightsPerDate() in Flight.pde and passes them to BarChart.
+void buildFlightDateChart() {
+  // Build short "MM/DD" labels from the full "MM/DD/YYYY" date strings
+  String[] shortLabels = new String[flightDates.length];
+  for (int i = 0; i < flightDates.length; i++) {
+    shortLabels[i] = (flightDates[i].length() >= 5) ? flightDates[i].substring(0, 5) : flightDates[i];
+  }
+
+  // Convert int[] counts to the comma-separated string BarChart expects
+  String countsStr = "";
+  for (int i = 0; i < flightCounts.length; i++) {
+    countsStr += flightCounts[i];
+    if (i < flightCounts.length - 1) countsStr += ",";
+  }
+
+  String[] csvData = { countsStr };
+  flightDateChart = new BarChart(120, 660, 960, 480, csvData, shortLabels);
+  flightDateChart.setChartTitle("Number of Flights per Date");
+  flightDateChart.setAxisTitles("Date (MM/DD)", "Number of Flights");
+}
+
+void drawGraphScreen() {
+  background(245);
+
+  fill(30, 60, 100);
+  noStroke();
+  rect(0, 0, width, 100);
+
+  fill(255);
+  textSize(32);
+  textAlign(CENTER, CENTER);
+  text("Flight Data - Bar Chart", width/2, 50);
+
+  if (flightDateChart != null) {
+    flightDateChart.drawBarChart();
+  } else {
+    fill(80);
+    textSize(18);
+    text("Chart could not be built (no data loaded).", width/2, height/2);
+  }
+
+  backButton.display();
 }

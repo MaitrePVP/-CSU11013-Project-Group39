@@ -41,17 +41,35 @@ class Flight {
 
   int getDepartureDelay() {
     if (cancelled == 1 || depTime == 0 || crsDepTime == 0) return 0;
-    return depTime - crsDepTime;
+
+    int delay = hhmmToMinutes(depTime) - hhmmToMinutes(crsDepTime);
+
+    if (delay < -720) delay += 1440;
+    if (delay > 720) delay -= 1440;
+
+    return delay;
   }
 
   String getFlightCode() {
-    return airlineCode + flightNumber;
+    return trim(airlineCode + " " + flightNumber);
+  }
+
+  String getDateKey() {
+    return normalizeDateKey(flightDate);
+  }
+
+  String getDelayLabel() {
+    if (cancelled == 1) return "Cancelled";
+    if (diverted == 1) return "Diverted";
+
+    int delay = getDepartureDelay();
+    String prefix = delay > 0 ? "+" : "";
+    return "Delay " + prefix + delay + " min";
   }
 }
 
-// Global arrays populated by computeFlightsPerDate()
 String[] flightDates  = new String[0];
-int[]    flightCounts = new int[0];
+int[] flightCounts = new int[0];
 
 void loadFlightData(String filename) {
   String[] lines = loadStrings(filename);
@@ -66,83 +84,235 @@ void loadFlightData(String filename) {
   flights.clear();
 
   for (int i = 1; i < lines.length; i++) {
-    String[] row = split(lines[i], ',');
+    String[] row = parseCsvLine(lines[i]);
 
     if (row.length >= 18) {
-      Flight f = new Flight(row);
-      flights.add(f);
+      flights.add(new Flight(row));
     }
   }
 
   dataLoaded = true;
   loadMessage = "Loaded " + flights.size() + " flights from " + filename;
   println(loadMessage);
-
-  computeFlightsPerDate();
 }
 
-// Counts how many flights occur on each unique date and stores
-// the results in the global flightDates and flightCounts arrays.
-void computeFlightsPerDate() {
+void computeFlightsPerDate(ArrayList<Flight> sourceFlights) {
   HashMap<String, Integer> dateCounts = new HashMap<String, Integer>();
 
-  for (Flight f : flights) {
-    // Strip the time from "01/01/2022 00:00" → "01/01/2022"
-    String dateStr = f.flightDate;
-    int spaceIdx = dateStr.indexOf(' ');
-    if (spaceIdx > 0) dateStr = dateStr.substring(0, spaceIdx);
-    dateStr = trim(dateStr);
+  for (Flight flight : sourceFlights) {
+    String dateKey = flight.getDateKey();
+    if (dateKey.equals("")) continue;
 
-    if (dateCounts.containsKey(dateStr)) {
-      dateCounts.put(dateStr, dateCounts.get(dateStr) + 1);
+    if (dateCounts.containsKey(dateKey)) {
+      dateCounts.put(dateKey, dateCounts.get(dateKey) + 1);
     } else {
-      dateCounts.put(dateStr, 1);
+      dateCounts.put(dateKey, 1);
     }
   }
 
-  // Sort dates chronologically
   flightDates = (String[]) dateCounts.keySet().toArray(new String[0]);
   java.util.Arrays.sort(flightDates);
 
-  // Build the counts array in the same sorted order
   flightCounts = new int[flightDates.length];
   for (int i = 0; i < flightDates.length; i++) {
     flightCounts[i] = dateCounts.get(flightDates[i]);
   }
-
-  println("computeFlightsPerDate: found " + flightDates.length + " unique dates.");
 }
 
 void filterFlightsByAirport(String airport) {
-  filteredFlights.clear();
-
-  for (Flight f : flights) {
-    if (f.origin.equals(airport) || f.dest.equals(airport)) {
-      filteredFlights.add(f);
-    }
-  }
+  filterFlights(airport, "", "");
 }
 
 void filterFlightsByDateRange(String start, String end) {
+  filterFlights("ALL", normalizeDateKey(start), normalizeDateKey(end));
+}
+
+void filterFlights(String airport, String startKey, String endKey) {
   filteredFlights.clear();
 
-  for (Flight f : flights) {
-    if (f.flightDate.compareTo(start) >= 0 && f.flightDate.compareTo(end) <= 0) {
-      filteredFlights.add(f);
+  String normalizedStart = normalizeDateKey(startKey);
+  String normalizedEnd = normalizeDateKey(endKey);
+
+  for (Flight flight : flights) {
+    boolean matchesAirport = airport.equals("ALL") || airport.equals("") ||
+                             flight.origin.equals(airport) || flight.dest.equals(airport);
+
+    boolean matchesDate = true;
+    String flightDateKey = flight.getDateKey();
+
+    if (!normalizedStart.equals("") && !normalizedEnd.equals("") && !flightDateKey.equals("")) {
+      matchesDate = flightDateKey.compareTo(normalizedStart) >= 0 &&
+                    flightDateKey.compareTo(normalizedEnd) <= 0;
+    }
+
+    if (matchesAirport && matchesDate) {
+      filteredFlights.add(flight);
     }
   }
 }
 
 void sortFilteredFlightsByLateness() {
-  for (int i = 0; i < filteredFlights.size() - 1; i++) {
-    for (int j = i + 1; j < filteredFlights.size(); j++) {
-      if (filteredFlights.get(j).getDepartureDelay() > filteredFlights.get(i).getDepartureDelay()) {
-        Flight temp = filteredFlights.get(i);
-        filteredFlights.set(i, filteredFlights.get(j));
-        filteredFlights.set(j, temp);
+  java.util.Collections.sort(filteredFlights, new java.util.Comparator<Flight>() {
+    public int compare(Flight left, Flight right) {
+      return right.getDepartureDelay() - left.getDepartureDelay();
+    }
+  });
+}
+
+String[] buildAirportOptions(int maxAirports) {
+  HashMap<String, Integer> airportCounts = new HashMap<String, Integer>();
+
+  for (Flight flight : flights) {
+    addAirportCount(airportCounts, flight.origin);
+    addAirportCount(airportCounts, flight.dest);
+  }
+
+  String[] airportCodes = (String[]) airportCounts.keySet().toArray(new String[0]);
+
+  for (int i = 0; i < airportCodes.length - 1; i++) {
+    for (int j = i + 1; j < airportCodes.length; j++) {
+      int currentCount = airportCounts.get(airportCodes[i]);
+      int nextCount = airportCounts.get(airportCodes[j]);
+
+      if (nextCount > currentCount ||
+          (nextCount == currentCount && airportCodes[j].compareTo(airportCodes[i]) < 0)) {
+        String temp = airportCodes[i];
+        airportCodes[i] = airportCodes[j];
+        airportCodes[j] = temp;
       }
     }
   }
+
+  int optionCount = maxAirports <= 0 ? airportCodes.length : min(maxAirports, airportCodes.length);
+  String[] options = new String[optionCount + 1];
+  options[0] = "ALL";
+
+  for (int i = 0; i < optionCount; i++) {
+    options[i + 1] = airportCodes[i];
+  }
+
+  return options;
+}
+
+void addAirportCount(HashMap<String, Integer> airportCounts, String airportCode) {
+  if (airportCode == null) return;
+
+  airportCode = trim(airportCode);
+  if (airportCode.equals("")) return;
+
+  if (airportCounts.containsKey(airportCode)) {
+    airportCounts.put(airportCode, airportCounts.get(airportCode) + 1);
+  } else {
+    airportCounts.put(airportCode, 1);
+  }
+}
+
+String[] getAvailableDateKeys() {
+  HashMap<String, Integer> uniqueDates = new HashMap<String, Integer>();
+
+  for (Flight flight : flights) {
+    String dateKey = flight.getDateKey();
+    if (!dateKey.equals("")) {
+      uniqueDates.put(dateKey, 1);
+    }
+  }
+
+  String[] keys = (String[]) uniqueDates.keySet().toArray(new String[0]);
+  java.util.Arrays.sort(keys);
+  return keys;
+}
+
+String[] parseCsvLine(String line) {
+  ArrayList<String> values = new ArrayList<String>();
+  StringBuilder currentValue = new StringBuilder();
+  boolean insideQuotes = false;
+
+  for (int i = 0; i < line.length(); i++) {
+    char currentChar = line.charAt(i);
+
+    if (currentChar == '"') {
+      if (insideQuotes && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+        currentValue.append('"');
+        i++;
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (currentChar == ',' && !insideQuotes) {
+      values.add(currentValue.toString());
+      currentValue.setLength(0);
+    } else {
+      currentValue.append(currentChar);
+    }
+  }
+
+  values.add(currentValue.toString());
+  return values.toArray(new String[0]);
+}
+
+String normalizeDateKey(String rawDate) {
+  String cleanedDate = trim(rawDate);
+  if (cleanedDate.equals("")) return "";
+
+  int spaceIndex = cleanedDate.indexOf(' ');
+  if (spaceIndex > 0) {
+    cleanedDate = cleanedDate.substring(0, spaceIndex);
+  }
+
+  if (cleanedDate.length() == 8 && cleanedDate.indexOf('/') == -1 && cleanedDate.indexOf('-') == -1) {
+    return cleanedDate;
+  }
+
+  if (cleanedDate.indexOf('/') != -1) {
+    String[] parts = split(cleanedDate, '/');
+    if (parts.length == 3) {
+      String month = padDatePart(parts[0]);
+      String day = padDatePart(parts[1]);
+      String year = trim(parts[2]);
+      return year + month + day;
+    }
+  }
+
+  if (cleanedDate.indexOf('-') != -1) {
+    String[] parts = split(cleanedDate, '-');
+    if (parts.length == 3) {
+      String year = trim(parts[0]);
+      String month = padDatePart(parts[1]);
+      String day = padDatePart(parts[2]);
+      return year + month + day;
+    }
+  }
+
+  return cleanedDate;
+}
+
+String padDatePart(String value) {
+  value = trim(value);
+  return value.length() == 1 ? "0" + value : value;
+}
+
+String formatDateForUi(String dateKey) {
+  String normalizedDate = normalizeDateKey(dateKey);
+  if (normalizedDate.length() != 8) return normalizedDate;
+
+  String year = normalizedDate.substring(0, 4);
+  String month = normalizedDate.substring(4, 6);
+  String day = normalizedDate.substring(6, 8);
+  return month + "/" + day + "/" + year;
+}
+
+String formatDateForChartLabel(String dateKey) {
+  String normalizedDate = normalizeDateKey(dateKey);
+  if (normalizedDate.length() != 8) return normalizedDate;
+
+  String month = normalizedDate.substring(4, 6);
+  String day = normalizedDate.substring(6, 8);
+  return month + "/" + day;
+}
+
+int hhmmToMinutes(int hhmm) {
+  int hours = hhmm / 100;
+  int minutes = hhmm % 100;
+  return hours * 60 + minutes;
 }
 
 String safeGet(String[] arr, int index) {
@@ -158,7 +328,7 @@ int safeInt(String s) {
 
   try {
     return Integer.parseInt(s);
-  } 
+  }
   catch (Exception e) {
     return 0;
   }

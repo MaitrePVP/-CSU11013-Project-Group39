@@ -6,12 +6,14 @@ Button quitButton;
 Button backButton;
 Button snakeButton;
 Button graphButton;
+
 Button airportPrevButton;
 Button airportNextButton;
 Button startPrevButton;
 Button startNextButton;
 Button endPrevButton;
 Button endNextButton;
+
 Button sortButton;
 Button resetFiltersButton;
 
@@ -135,12 +137,12 @@ void drawResultsScreen() {
   text("Date Range", 90, 356);
   fill(80);
   textSize(13);
-  text("Start", 90, 388);
+  text("Start", 90, 373);
   drawSelectionCard(145, 388, 150, 36, formatDateForUi(startDate));
   startPrevButton.display();
   startNextButton.display();
 
-  text("End", 90, 454);
+  text("End", 90, 440);
   drawSelectionCard(145, 454, 150, 36, formatDateForUi(endDate));
   endPrevButton.display();
   endNextButton.display();

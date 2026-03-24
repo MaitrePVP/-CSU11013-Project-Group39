@@ -1,4 +1,4 @@
-int currentScreen = 0; // 0 = home, 1 = results, 2 = info, 3 = snake, 4 = graph
+int currentScreen = 0; // 0 = home, 1 = results, 2 = info, 3 = snake, 4 = graph, 5= scatterplot
 
 Button startButton;
 Button infoButton;
@@ -6,6 +6,7 @@ Button quitButton;
 Button backButton;
 Button snakeButton;
 Button graphButton;
+Button scatterButton;
 
 Button airportPrevButton;
 Button airportNextButton;
@@ -48,6 +49,7 @@ String loadMessage = "Data not loaded yet.";
 
 // Codex update, 21/03/2026: merged working filters into the latest UI.
 BarChart flightDateChart;
+ScatterPlot flightAirportScatter;
 
 void setup() {
   size(1200, 800);
@@ -64,6 +66,7 @@ void setup() {
   quitButton = new Button(width / 2 - 150, 500, 300, 60, "Exit");
   backButton = new Button(40, 40, 170, 50, "Back to Home");
   graphButton = new Button(990, 40, 170, 50, "See Graphs");
+  scatterButton = new Button(990, 40, 170, 50, "See Scatter Plot");
   snakeButton = new Button(width / 2 - 120, 590, 240, 55, "Play Snake");
 
   airportPrevButton = new Button(95, 296, 42, 36, "<", 22);
@@ -93,6 +96,8 @@ void draw() {
     drawSnakeScreen();
   } else if (currentScreen == 4) {
     drawGraphScreen();
+  } else if (currentScreen == 5) {
+    drawScatterScreen();
   }
 }
 
@@ -271,9 +276,14 @@ void mousePressed() {
   } else if (currentScreen == 4) {
     if (backButton.isMouseOver()) {
       currentScreen = 1;
+    } else if (scatterButton.isMouseOver()){
+      currentScreen = 5;
+    }
+  }else if (currentScreen == 5) {
+    if (backButton.isMouseOver()) {
+      currentScreen = 1;
     }
   }
-
   updateSnakeUnlock();
 }
 
@@ -387,7 +397,38 @@ void drawGraphScreen() {
   }
 
   backButton.display();
+  scatterButton.display();
 }
+
+
+void drawScatterScreen() {
+  backButton.label = "Back to Results";
+
+  background(245);
+
+  fill(30, 60, 100);
+  noStroke();
+  rect(0, 0, width, 100);
+
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(32);
+  text("Flight Data - ScatterPlot", width / 2, 45);
+
+  textSize(14);
+  text("Airport: " + getAirportDisplayLabel() + "   Dates: " + getDateRangeLabel() + "   Matching flights: " + filteredFlights.size(), width / 2, 78);
+
+  if (flightAirportScatter != null) {
+    flightAirportScatter.drawScatterPlot();
+  } else {
+    fill(80);
+    textSize(18);
+    text("Scatter Plot could not be built (no data loaded).", width / 2, height / 2);
+  }
+
+  backButton.display();
+}
+
 
 void initialiseFilterState() {
   airportOptions = buildAirportOptions(0);

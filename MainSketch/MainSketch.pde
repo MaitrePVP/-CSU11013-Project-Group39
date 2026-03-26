@@ -10,6 +10,8 @@ Button scatterButton;
 
 Button airportPrevButton;
 Button airportNextButton;
+Button airportPrevButtonGraph;
+Button airportNextButtonGraph;
 Button startPrevButton;
 Button startNextButton;
 Button endPrevButton;
@@ -71,6 +73,8 @@ void setup() {
 
   airportPrevButton = new Button(95, 296, 42, 36, "<", 22);
   airportNextButton = new Button(303, 296, 42, 36, ">", 22);
+  airportPrevButtonGraph = new Button(930, 130, 42, 36, "<", 22);
+  airportNextButtonGraph = new Button(1130, 130, 42, 36, ">", 22);
   startPrevButton = new Button(95, 388, 42, 36, "<", 22);
   startNextButton = new Button(303, 388, 42, 36, ">", 22);
   endPrevButton = new Button(95, 454, 42, 36, "<", 22);
@@ -243,7 +247,7 @@ void mousePressed() {
       shiftAirportSelection(-1);
     } else if (airportNextButton.isMouseOver()) {
       shiftAirportSelection(1);
-    } else if (startPrevButton.isMouseOver()) {
+    }else if (startPrevButton.isMouseOver()) {
       shiftStartDate(-1);
     } else if (startNextButton.isMouseOver()) {
       shiftStartDate(1);
@@ -278,6 +282,10 @@ void mousePressed() {
       currentScreen = 1;
     } else if (scatterButton.isMouseOver()){
       currentScreen = 5;
+    } else if (airportPrevButtonGraph.isMouseOver()) {
+      shiftAirportSelection(-1);
+    } else if (airportNextButtonGraph.isMouseOver()) {
+      shiftAirportSelection(1);
     }
   }else if (currentScreen == 5) {
     if (backButton.isMouseOver()) {
@@ -381,7 +389,14 @@ void drawGraphScreen() {
   fill(30, 60, 100);
   noStroke();
   rect(0, 0, width, 100);
-
+  
+  fill(40);
+  textSize(16);
+  text("Airport", 975, 115);
+  drawSelectionCard(975, 130, 150, 36, getAirportDisplayLabel());
+  airportPrevButtonGraph.display();
+  airportNextButtonGraph.display();
+  
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(32);

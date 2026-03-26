@@ -1,3 +1,5 @@
+import processing.event.*;
+
 int currentScreen = 0; // 0 = home, 1 = results, 2 = info, 3 = snake, 4 = graph, 5= scatterplot
 
 Button startButton;
@@ -13,6 +15,15 @@ Button airportNextButton;
 Button airportPrevButtonGraph;
 Button airportNextButtonGraph;
 Button startPrevButton;
+
+boolean graphAirportDropdownOpen = false;
+int graphAirportDropdownScroll = 0;
+int graphAirportDropdownX = 975;
+int graphAirportDropdownY = 130;
+int graphAirportDropdownW = 150;
+int graphAirportDropdownH = 36;
+int graphAirportDropdownItemH = 34;
+int graphAirportDropdownVisibleItems = 10;
 Button startNextButton;
 Button endPrevButton;
 Button endNextButton;
@@ -278,14 +289,14 @@ void mousePressed() {
       currentScreen = 0;
     }
   } else if (currentScreen == 4) {
-    if (backButton.isMouseOver()) {
+    if (handleGraphAirportDropdownClick(mouseX, mouseY)) {
+      return;
+    } else if (backButton.isMouseOver()) {
       currentScreen = 1;
+      graphAirportDropdownOpen = false;
     } else if (scatterButton.isMouseOver()){
       currentScreen = 5;
-    } else if (airportPrevButtonGraph.isMouseOver()) {
-      shiftAirportSelection(-1);
-    } else if (airportNextButtonGraph.isMouseOver()) {
-      shiftAirportSelection(1);
+      graphAirportDropdownOpen = false;
     }
   }else if (currentScreen == 5) {
     if (backButton.isMouseOver()) {
@@ -294,7 +305,18 @@ void mousePressed() {
   }
   updateSnakeUnlock();
   
-  flightDateChart.handleClick(mouseX, mouseY);
+  if (currentScreen == 4 && flightDateChart != null && !graphAirportDropdownOpen) {
+    flightDateChart.handleClick(mouseX, mouseY);
+  }
+}
+
+void mouseWheel(MouseEvent event) {
+  if (!graphAirportDropdownOpen || currentScreen != 4) return;
+
+  int visibleCount = getGraphAirportDropdownVisibleCount();
+  int maxScroll = max(0, airportOptions.length - visibleCount);
+  graphAirportDropdownScroll += int(event.getCount());
+  graphAirportDropdownScroll = constrain(graphAirportDropdownScroll, 0, maxScroll);
 }
 
 void keyPressed() {
@@ -393,9 +415,7 @@ void drawGraphScreen() {
   fill(40);
   textSize(16);
   text("Airport", 975, 115);
-  drawSelectionCard(975, 130, 150, 36, getAirportDisplayLabel());
-  airportPrevButtonGraph.display();
-  airportNextButtonGraph.display();
+  drawAirportDropdown();
   
   fill(255);
   textAlign(CENTER, CENTER);
@@ -655,6 +675,127 @@ String getChartTitle() {
   }
 
   return selectedAirport + " Flights per Date";
+}
+
+void drawAirportDropdown() {
+  pushStyle();
+
+  float cardX = graphAirportDropdownX;
+  float cardY = graphAirportDropdownY;
+  float cardW = graphAirportDropdownW;
+  float cardH = graphAirportDropdownH;
+
+  fill(250);
+  stroke(graphAirportDropdownOpen ? color(70, 130, 200) : color(210));
+  strokeWeight(graphAirportDropdownOpen ? 2 : 1.5);
+  rect(cardX, cardY, cardW, cardH, 10);
+
+  fill(40);
+  textAlign(LEFT, CENTER);
+  textSize(14);
+  text(getAirportDisplayLabel(), cardX + 12, cardY + cardH / 2);
+
+  textAlign(CENTER, CENTER);
+  textSize(12);
+  text(graphAirportDropdownOpen ? "▲" : "▼", cardX + cardW - 16, cardY + cardH / 2 + 1);
+
+  if (graphAirportDropdownOpen) {
+    int visibleCount = getGraphAirportDropdownVisibleCount();
+    int listH = visibleCount * graphAirportDropdownItemH;
+    float listY = cardY + cardH + 6;
+
+    noStroke();
+    fill(0, 18);
+    rect(cardX + 3, listY + 3, cardW, listH, 10);
+
+    stroke(210);
+    strokeWeight(1.5);
+    fill(255);
+    rect(cardX, listY, cardW, listH, 10);
+
+    for (int i = 0; i < visibleCount; i++) {
+      int optionIndex = graphAirportDropdownScroll + i;
+      float itemY = listY + i * graphAirportDropdownItemH;
+      boolean isHovered = mouseX >= cardX && mouseX <= cardX + cardW &&
+                          mouseY >= itemY && mouseY <= itemY + graphAirportDropdownItemH;
+      boolean isSelected = optionIndex == selectedAirportIndex;
+
+      if (isHovered || isSelected) {
+        noStroke();
+        fill(isSelected ? color(220, 232, 247) : color(240, 245, 250));
+        rect(cardX + 2, itemY + 2, cardW - 4, graphAirportDropdownItemH - 4, 8);
+      }
+
+      fill(35);
+      textAlign(LEFT, CENTER);
+      textSize(13);
+      text(getAirportOptionLabel(optionIndex), cardX + 12, itemY + graphAirportDropdownItemH / 2);
+    }
+
+    if (airportOptions.length > visibleCount) {
+      fill(90);
+      textAlign(CENTER, CENTER);
+      textSize(11);
+      text("Scroll for more", cardX + cardW / 2, listY + listH - 10);
+    }
+  }
+
+  popStyle();
+}
+
+boolean handleGraphAirportDropdownClick(int mx, int my) {
+  float cardX = graphAirportDropdownX;
+  float cardY = graphAirportDropdownY;
+  float cardW = graphAirportDropdownW;
+  float cardH = graphAirportDropdownH;
+
+  boolean clickedCard = mx >= cardX && mx <= cardX + cardW &&
+                        my >= cardY && my <= cardY + cardH;
+
+  if (clickedCard) {
+    graphAirportDropdownOpen = !graphAirportDropdownOpen;
+    graphAirportDropdownScroll = constrain(graphAirportDropdownScroll, 0, max(0, airportOptions.length - getGraphAirportDropdownVisibleCount()));
+    return true;
+  }
+
+  if (!graphAirportDropdownOpen) {
+    return false;
+  }
+
+  int visibleCount = getGraphAirportDropdownVisibleCount();
+  float listY = cardY + cardH + 6;
+  float listH = visibleCount * graphAirportDropdownItemH;
+  boolean clickedList = mx >= cardX && mx <= cardX + cardW &&
+                        my >= listY && my <= listY + listH;
+
+  if (clickedList) {
+    int itemIndex = int((my - listY) / graphAirportDropdownItemH);
+    int optionIndex = graphAirportDropdownScroll + itemIndex;
+
+    if (optionIndex >= 0 && optionIndex < airportOptions.length) {
+      selectedAirportIndex = optionIndex;
+      graphAirportDropdownOpen = false;
+      applyActiveFilters();
+    }
+    return true;
+  }
+
+  graphAirportDropdownOpen = false;
+  return false;
+}
+
+int getGraphAirportDropdownVisibleCount() {
+  if (airportOptions.length == 0) return 0;
+
+  int spaceBelow = height - (graphAirportDropdownY + graphAirportDropdownH + 16);
+  int maxFromSpace = max(1, spaceBelow / graphAirportDropdownItemH);
+  return min(airportOptions.length, min(graphAirportDropdownVisibleItems, maxFromSpace));
+}
+
+String getAirportOptionLabel(int index) {
+  if (index < 0 || index >= airportOptions.length) return "";
+
+  return airportOptions[index].equals("ALL") ? "All airports" : airportOptions[index];
 }
 
 int findStringIndex(String[] values, String target) {

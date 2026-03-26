@@ -285,6 +285,8 @@ void mousePressed() {
     }
   }
   updateSnakeUnlock();
+  
+  flightDateChart.handleClick(mouseX, mouseY);
 }
 
 void keyPressed() {

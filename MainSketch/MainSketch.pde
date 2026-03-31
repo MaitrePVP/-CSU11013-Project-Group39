@@ -16,6 +16,14 @@ Button airportPrevButtonGraph;
 Button airportNextButtonGraph;
 Button startPrevButton;
 
+Button navHomeButton;
+Button navResultsButton;
+Button navInfoButton;
+Button navGraphButton;
+Button navScatterButton;
+Button navSnakeButton;
+
+
 boolean graphAirportDropdownOpen = false;
 int graphAirportDropdownScroll = 0;
 int graphAirportDropdownX = 975;
@@ -60,10 +68,18 @@ int visibleFlightCount = 12;
 
 String loadMessage = "Data not loaded yet.";
 
-// Codex update, 21/03/2026: merged working filters into the latest UI.
+
 BarChart flightDateChart;
 ScatterPlot flightAirportScatter;
 
+// setup()
+// Initialises the whole sketch:
+// - sets window size and text settings
+// - creates all UI buttons
+// - initialises the Snake minigame
+// - loads the flight CSV data
+// - prepares the filter state for the results/graph screens
+// This function runs once at the start.
 void setup() {
   size(1200, 800);
   smooth(8);
@@ -81,6 +97,13 @@ void setup() {
   graphButton = new Button(990, 40, 170, 50, "See Graphs");
   scatterButton = new Button(990, 40, 170, 50, "See Scatter Plot");
   snakeButton = new Button(width / 2 - 120, 590, 240, 55, "Play Snake");
+  
+  navHomeButton = new Button(20, 12, 110, 30, "Home", 14);
+  navResultsButton = new Button(140, 12, 110, 30, "Results", 14);
+  navInfoButton = new Button(260, 12, 110, 30, "Info", 14);
+  navGraphButton = new Button(380, 12, 130, 30, "Bar Chart", 14);
+  navScatterButton = new Button(520, 12, 130, 30, "Scatter", 14);
+  navSnakeButton = new Button(660, 12, 110, 30, "Snake", 14);
 
   airportPrevButton = new Button(95, 296, 42, 36, "<", 22);
   airportNextButton = new Button(303, 296, 42, 36, ">", 22);
@@ -97,6 +120,16 @@ void setup() {
   loadFlightData("flights2k.csv");
   initialiseFilterState();
 }
+
+// draw()
+// Main Processing loop.
+// Decides which screen to draw depending on currentScreen:
+// 0 = home
+// 1 = results
+// 2 = info
+// 3 = snake
+// 4 = bar chart
+// 5 = scatter plot
 
 void draw() {
   background(235, 242, 250);
@@ -116,9 +149,16 @@ void draw() {
   }
 }
 
+// drawResultsScreen()
+// Draws the results page:
+// - top header
+// - filter controls on the left
+// - loaded flight results on the right
+// - sorting/reset buttons
+// - navigation buttons
+// This is the main data exploration screen.
 void drawResultsScreen() {
-  backButton.label = "Back to Home";
-  graphButton.label = "See Graphs";
+
 
   background(245);
 
@@ -129,7 +169,7 @@ void drawResultsScreen() {
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(32);
-  text("Results Screen", width / 2, 50);
+  text("Results Screen", width / 2, 68);
 
   fill(255);
   stroke(180);
@@ -178,12 +218,16 @@ void drawResultsScreen() {
 
   drawFlightResultsPanel();
 
-  backButton.display();
-  graphButton.display();
+  drawNavBar();
 }
 
+// drawInfoScreen()
+// Draws the group information page.
+// Displays team member names, the hidden message, and unlocks the Snake button
+// once all names have been clicked.
+// Also shows the back button.
 void drawInfoScreen() {
-  backButton.label = "Back to Home";
+
 
   background(245);
 
@@ -194,7 +238,7 @@ void drawInfoScreen() {
   fill(255);
   textSize(34);
   textAlign(CENTER, CENTER);
-  text("Group Information", width / 2, 60);
+  text("Group Information", width / 2, 74);
 
   fill(255);
   stroke(180);
@@ -225,9 +269,13 @@ void drawInfoScreen() {
     snakeButton.display();
   }
 
-  backButton.display();
+  drawNavBar();
 }
 
+// drawMemberName(String name, float x, float y, boolean clicked)
+// Draws one team member name at a given position.
+// If the name has already been clicked, it is shown in green.
+// Otherwise it is shown in the default dark colour.
 void drawMemberName(String name, float x, float y, boolean clicked) {
   if (clicked) {
     fill(20, 140, 60);
@@ -239,8 +287,63 @@ void drawMemberName(String name, float x, float y, boolean clicked) {
   textAlign(CENTER, CENTER);
   text(name, x, y);
 }
+void drawNavBar() {
+  navHomeButton.display(currentScreen == 0);
+  navResultsButton.display(currentScreen == 1);
+  navInfoButton.display(currentScreen == 2);
+  navGraphButton.display(currentScreen == 4);
+  navScatterButton.display(currentScreen == 5);
 
+  if (snakeUnlocked || currentScreen == 3) {
+    navSnakeButton.display(currentScreen == 3);
+  }
+}
+
+boolean handleNavBarClick() {
+  if (navHomeButton.isMouseOver()) {
+    currentScreen = 0;
+    graphAirportDropdownOpen = false;
+    return true;
+  } else if (navResultsButton.isMouseOver()) {
+    currentScreen = 1;
+    graphAirportDropdownOpen = false;
+    return true;
+  } else if (navInfoButton.isMouseOver()) {
+    currentScreen = 2;
+    graphAirportDropdownOpen = false;
+    return true;
+  } else if (navGraphButton.isMouseOver()) {
+    currentScreen = 4;
+    graphAirportDropdownOpen = false;
+    return true;
+  } else if (navScatterButton.isMouseOver()) {
+    currentScreen = 5;
+    graphAirportDropdownOpen = false;
+    return true;
+  } else if ((snakeUnlocked || currentScreen == 3) && navSnakeButton.isMouseOver()) {
+    currentScreen = 3;
+    graphAirportDropdownOpen = false;
+    resetSnakeGame();
+    return true;
+  }
+
+  return false;
+}
+
+// mousePressed()
+// Handles all mouse click interactions in the sketch.
+// What it does depends on the current screen:
+// - home: open results/info or quit
+// - results: change filters, sort, reset, open graph screen
+// - info: click member names, unlock/open Snake
+// - snake: return to home
+// - graph: interact with airport dropdown or go to scatter
+// - scatter: return to results
+// At the end, it also checks whether Snake should now be unlocked.
 void mousePressed() {
+  if (handleNavBarClick()) {
+    return;
+  }
   if (currentScreen == 0) {
     if (startButton.isMouseOver()) {
       currentScreen = 1;
@@ -250,11 +353,7 @@ void mousePressed() {
       exit();
     }
   } else if (currentScreen == 1) {
-    if (backButton.isMouseOver()) {
-      currentScreen = 0;
-    } else if (graphButton.isMouseOver()) {
-      currentScreen = 4;
-    } else if (airportPrevButton.isMouseOver()) {
+      if (airportPrevButton.isMouseOver()) {
       shiftAirportSelection(-1);
     } else if (airportNextButton.isMouseOver()) {
       shiftAirportSelection(1);
@@ -273,10 +372,12 @@ void mousePressed() {
       resetFilters();
     }
   } else if (currentScreen == 2) {
-    if (backButton.isMouseOver()) {
-      currentScreen = 0;
-      return;
-    }
+    checkNameClicks();
+
+    if (snakeUnlocked && snakeButton.isMouseOver()) {
+      currentScreen = 3;
+      resetSnakeGame();
+  }
 
     checkNameClicks();
 
@@ -285,24 +386,12 @@ void mousePressed() {
       resetSnakeGame();
     }
   } else if (currentScreen == 3) {
-    if (backButton.isMouseOver()) {
-      currentScreen = 0;
-    }
   } else if (currentScreen == 4) {
     if (handleGraphAirportDropdownClick(mouseX, mouseY)) {
       return;
-    } else if (backButton.isMouseOver()) {
-      currentScreen = 1;
-      graphAirportDropdownOpen = false;
-    } else if (scatterButton.isMouseOver()){
-      currentScreen = 5;
-      graphAirportDropdownOpen = false;
     }
   }else if (currentScreen == 5) {
-    if (backButton.isMouseOver()) {
-      currentScreen = 1;
     }
-  }
   updateSnakeUnlock();
   
   if (currentScreen == 4 && flightDateChart != null && !graphAirportDropdownOpen) {
@@ -310,6 +399,10 @@ void mousePressed() {
   }
 }
 
+// mouseWheel(MouseEvent event)
+// Handles scrolling only for the graph airport dropdown.
+// If the dropdown is open on the graph screen, this changes which airport
+// options are currently visible.
 void mouseWheel(MouseEvent event) {
   if (!graphAirportDropdownOpen || currentScreen != 4) return;
 
@@ -319,12 +412,20 @@ void mouseWheel(MouseEvent event) {
   graphAirportDropdownScroll = constrain(graphAirportDropdownScroll, 0, maxScroll);
 }
 
+// keyPressed()
+// Handles keyboard input.
+// At the moment, this only forwards keyboard input to the Snake game
+// when the Snake screen is active.
 void keyPressed() {
   if (currentScreen == 3) {
     handleSnakeInput();
   }
 }
 
+// checkNameClicks()
+// Checks whether the user clicked on one of the group member names
+// on the info screen.
+// Each successful click marks the corresponding boolean as true.
 void checkNameClicks() {
   if (isMouseOverText(width / 2, 350, 280, 30)) {
     clickedAlessandro = true;
@@ -337,12 +438,19 @@ void checkNameClicks() {
   }
 }
 
+// updateSnakeUnlock()
+// Unlocks the Snake minigame once all four names have been clicked.
+// This is the small easter egg system for the project.
 void updateSnakeUnlock() {
   if (clickedAlessandro && clickedMusa && clickedAlex && clickedElijas) {
     snakeUnlocked = true;
   }
 }
 
+// isMouseOverText(float centerX, float centerY, float boxW, float boxH)
+// Utility function used for clickable text.
+// Instead of checking the exact letters, it checks whether the mouse is inside
+// a rectangular area around the text.
 boolean isMouseOverText(float centerX, float centerY, float boxW, float boxH) {
   return mouseX >= centerX - boxW / 2 &&
          mouseX <= centerX + boxW / 2 &&
@@ -350,8 +458,12 @@ boolean isMouseOverText(float centerX, float centerY, float boxW, float boxH) {
          mouseY <= centerY + boxH / 2;
 }
 
+// drawHomeScreen()
+// Draws the main welcome screen.
+// Shows the project title, short description, and the three main buttons:
+// Start Exploring, Group Info, Exit.
 void drawHomeScreen() {
-  backButton.label = "Back to Home";
+  
 
   fill(30, 60, 100);
   noStroke();
@@ -360,10 +472,10 @@ void drawHomeScreen() {
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(36);
-  text("Flight Data Visualisation", width / 2, 50);
+  text("Flight Data Visualisation", width / 2, 64);
 
   textSize(18);
-  text("CSU11013 Group Project", width / 2, 90);
+  text("CSU11013 Group Project", width / 2, 96);
 
   fill(255);
   stroke(180);
@@ -383,6 +495,10 @@ void drawHomeScreen() {
   quitButton.display();
 }
 
+// buildFlightDateChart()
+// Rebuilds the bar chart based on the currently filtered flights.
+// It computes flights per date, shortens the date labels,
+// builds the chart data, and updates the chart title/axis labels.
 void buildFlightDateChart() {
   computeFlightsPerDate(filteredFlights);
 
@@ -403,8 +519,15 @@ void buildFlightDateChart() {
   flightDateChart.setAxisTitles("Date (MM/DD)", "Number of Flights");
 }
 
+// drawGraphScreen()
+// Draws the bar chart screen.
+// Shows:
+// - page title
+// - selected airport/date range information
+// - airport dropdown
+// - bar chart if available
+// - fallback message if chart cannot be built
 void drawGraphScreen() {
-  backButton.label = "Back to Results";
 
   background(245);
 
@@ -420,10 +543,10 @@ void drawGraphScreen() {
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(32);
-  text("Flight Data - Bar Chart", width / 2, 45);
+  text("Flight Data - Bar Chart", width / 2, 62);
 
   textSize(14);
-  text("Airport: " + getAirportDisplayLabel() + "   Dates: " + getDateRangeLabel() + "   Matching flights: " + filteredFlights.size(), width / 2, 78);
+  text("Airport: " + getAirportDisplayLabel() + "   Dates: " + getDateRangeLabel() + "   Matching flights: " + filteredFlights.size(), width / 2, 90);
 
   if (flightDateChart != null) {
     flightDateChart.drawBarChart();
@@ -433,13 +556,14 @@ void drawGraphScreen() {
     text("Chart could not be built (no data loaded).", width / 2, height / 2);
   }
 
-  backButton.display();
-  scatterButton.display();
+  drawNavBar();
 }
 
-
+// drawScatterScreen()
+// Draws the scatter plot screen.
+// Similar to the graph screen, but displays the scatter plot instead
+// of the bar chart.
 void drawScatterScreen() {
-  backButton.label = "Back to Results";
 
   background(245);
 
@@ -450,10 +574,10 @@ void drawScatterScreen() {
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(32);
-  text("Flight Data - ScatterPlot", width / 2, 45);
+  text("Flight Data - ScatterPlot", width / 2, 62);
 
   textSize(14);
-  text("Airport: " + getAirportDisplayLabel() + "   Dates: " + getDateRangeLabel() + "   Matching flights: " + filteredFlights.size(), width / 2, 78);
+  text("Airport: " + getAirportDisplayLabel() + "   Dates: " + getDateRangeLabel() + "   Matching flights: " + filteredFlights.size(), width / 2, 90);
 
   if (flightAirportScatter != null) {
     flightAirportScatter.drawScatterPlot();
@@ -463,10 +587,17 @@ void drawScatterScreen() {
     text("Scatter Plot could not be built (no data loaded).", width / 2, height / 2);
   }
 
-  backButton.display();
+  drawNavBar();
 }
 
-
+// initialiseFilterState()
+// Sets up the filtering system after the data is loaded.
+// It:
+// - builds airport options
+// - loads available dates
+// - selects default filter values
+// - disables sorting initially
+// - applies the filters once to populate the results
 void initialiseFilterState() {
   airportOptions = buildAirportOptions(0);
   dateOptions = getAvailableDateKeys();
@@ -483,6 +614,11 @@ void initialiseFilterState() {
   applyActiveFilters();
 }
 
+// applyActiveFilters()
+// Core filtering function of the project.
+// It validates current filter indices, updates selected airport/date values,
+// filters the flights list, optionally sorts by lateness,
+// updates button labels, and rebuilds the chart.
 void applyActiveFilters() {
   if (!dataLoaded) {
     filteredFlights.clear();
@@ -524,6 +660,12 @@ void applyActiveFilters() {
   buildFlightDateChart();
 }
 
+// resetFilters()
+// Resets the filters back to their default state:
+// - airport = ALL
+// - date range = full available range
+// - sorting = file order
+// Then reapplies the filters.
 void resetFilters() {
   selectedAirportIndex = 0;
 
@@ -536,6 +678,10 @@ void resetFilters() {
   applyActiveFilters();
 }
 
+// shiftAirportSelection(int direction)
+// Moves the airport selection left or right through the airport list.
+// Wraps around when reaching the beginning or end of the list.
+// Then reapplies the filters.
 void shiftAirportSelection(int direction) {
   if (airportOptions.length == 0) return;
 
@@ -550,6 +696,10 @@ void shiftAirportSelection(int direction) {
   applyActiveFilters();
 }
 
+// shiftStartDate(int direction)
+// Moves the selected start date backward or forward.
+// Ensures that the start date never goes past the end date.
+// Then reapplies the filters.
 void shiftStartDate(int direction) {
   if (dateOptions.length == 0) return;
 
@@ -561,6 +711,10 @@ void shiftStartDate(int direction) {
   applyActiveFilters();
 }
 
+// shiftEndDate(int direction)
+// Moves the selected end date backward or forward.
+// Ensures that the end date never goes before the start date.
+// Then reapplies the filters.
 void shiftEndDate(int direction) {
   if (dateOptions.length == 0) return;
 
@@ -572,6 +726,9 @@ void shiftEndDate(int direction) {
   applyActiveFilters();
 }
 
+// drawSelectionCard(float x, float y, float w, float h, String label)
+// Draws a small rounded rectangular UI card used to display
+// the currently selected airport or date value.
 void drawSelectionCard(float x, float y, float w, float h, String label) {
   pushStyle();
   fill(250);
@@ -586,6 +743,13 @@ void drawSelectionCard(float x, float y, float w, float h, String label) {
   popStyle();
 }
 
+// drawFlightResultsPanel()
+// Draws the right-hand results area on the results screen.
+// It shows:
+// - current filter summary
+// - loading/fallback messages if needed
+// - the first visible matching flights
+// - a note if there are more matching flights than shown
 void drawFlightResultsPanel() {
   pushStyle();
   textAlign(LEFT, TOP);
@@ -639,6 +803,9 @@ void drawFlightResultsPanel() {
   popStyle();
 }
 
+// formatFlightSummary(Flight flight)
+// Converts a Flight object into a readable one-line summary
+// for display in the results panel.
 String formatFlightSummary(Flight flight) {
   return formatDateForChartLabel(flight.getDateKey()) + "   " +
          flight.getFlightCode() + "   " +
@@ -646,10 +813,17 @@ String formatFlightSummary(Flight flight) {
          flight.getDelayLabel();
 }
 
+// getAirportDisplayLabel()
+// Returns the airport label for the UI.
+// If the selected airport is "ALL", it returns "All airports" instead.
 String getAirportDisplayLabel() {
   return selectedAirport.equals("ALL") ? "All airports" : selectedAirport;
 }
 
+// getDateRangeLabel()
+// Returns a readable label for the currently selected date range.
+// If both dates are empty, it returns "All dates".
+// If both dates are the same, it returns just one date.
 String getDateRangeLabel() {
   if (startDate.equals("") || endDate.equals("")) {
     return "All dates";
@@ -665,10 +839,16 @@ String getDateRangeLabel() {
   return startLabel + " - " + endLabel;
 }
 
+// getSortDescription()
+// Returns a short description of the current sort mode.
 String getSortDescription() {
   return sortByLateness ? "Most late first" : "Dataset order";
 }
 
+// getChartTitle()
+// Returns the title to use for the bar chart.
+// If all airports are selected, it uses a generic title.
+// Otherwise it includes the airport name.
 String getChartTitle() {
   if (selectedAirport.equals("ALL")) {
     return "Flights per Date";
@@ -677,6 +857,14 @@ String getChartTitle() {
   return selectedAirport + " Flights per Date";
 }
 
+// drawAirportDropdown()
+// Draws the custom airport dropdown used on the graph screen.
+// It draws:
+// - the collapsed selection box
+// - the arrow indicator
+// - the open dropdown list if expanded
+// - hover/selected styling
+// - a small "Scroll for more" hint if needed
 void drawAirportDropdown() {
   pushStyle();
 
@@ -743,6 +931,13 @@ void drawAirportDropdown() {
   popStyle();
 }
 
+// handleGraphAirportDropdownClick(int mx, int my)
+// Handles mouse clicks for the graph airport dropdown.
+// It can:
+// - open/close the dropdown
+// - select an airport from the list
+// - close the dropdown if the user clicks outside it
+// Returns true if the click was handled by the dropdown.
 boolean handleGraphAirportDropdownClick(int mx, int my) {
   float cardX = graphAirportDropdownX;
   float cardY = graphAirportDropdownY;
@@ -784,6 +979,9 @@ boolean handleGraphAirportDropdownClick(int mx, int my) {
   return false;
 }
 
+// getGraphAirportDropdownVisibleCount()
+// Calculates how many dropdown items can be shown on screen at once,
+// based on available space and the configured dropdown limit.
 int getGraphAirportDropdownVisibleCount() {
   if (airportOptions.length == 0) return 0;
 
@@ -792,12 +990,18 @@ int getGraphAirportDropdownVisibleCount() {
   return min(airportOptions.length, min(graphAirportDropdownVisibleItems, maxFromSpace));
 }
 
+// getAirportOptionLabel(int index)
+// Returns the airport label at a given index.
+// Converts "ALL" into "All airports" for nicer UI text.
 String getAirportOptionLabel(int index) {
   if (index < 0 || index >= airportOptions.length) return "";
 
   return airportOptions[index].equals("ALL") ? "All airports" : airportOptions[index];
 }
 
+// findStringIndex(String[] values, String target)
+// Searches an array of strings and returns the index of the target string.
+// Returns -1 if the target is not found.
 int findStringIndex(String[] values, String target) {
   for (int i = 0; i < values.length; i++) {
     if (values[i].equals(target)) {

@@ -14,12 +14,23 @@ int snakeSpeed = 8;
 boolean snakeGameOver = false;
 int snakeScore = 0;
 
+// initSnakeGame()
+// Initialises the Snake board dimensions and starts a fresh game.
+// This is called once from setup().
 void initSnakeGame() {
   cols = 30;
   rows = 30;
   resetSnakeGame();
 }
 
+// resetSnakeGame()
+// Resets Snake to its starting state:
+// - creates a new snake in the centre
+// - resets direction
+// - clears game over state
+// - resets score
+// - places new food
+// Used both at startup and when restarting.
 void resetSnakeGame() {
   snake = new ArrayList<PVector>();
 
@@ -39,6 +50,10 @@ void resetSnakeGame() {
   placeFood();
 }
 
+// placeFood()
+// Randomly places food on the board.
+// It keeps trying until it finds a position that is not already occupied
+// by the snake body.
 void placeFood() {
   boolean valid = false;
 
@@ -60,18 +75,27 @@ void placeFood() {
   }
 }
 
+// drawSnakeScreen()
+// Draws the full Snake minigame screen:
+// - dark background
+// - title and instructions
+// - score
+// - back button
+// - game board
+// - game over message when needed
+// It also updates the game every frame.
 void drawSnakeScreen() {
   background(20);
 
   fill(255);
   textSize(30);
-  text("Snake", width/2, 40);
+  text("Snake", width/2, 60);
 
   textSize(18);
-  text("Use arrow keys to move", width/2, 75);
-  text("Score: " + snakeScore, width/2, 105);
+  text("Use arrow keys to move", width/2, 95);
+  text("Score: " + snakeScore, width/2, 125);
 
-  backButton.display();
+  drawNavBar();
 
   float boardSize = 600;
   float boardX = (width - boardSize) / 2;
@@ -97,6 +121,16 @@ void drawSnakeScreen() {
   }
 }
 
+// updateSnakeGame()
+// Handles the logic update of Snake.
+// It:
+// - waits according to snakeSpeed
+// - computes the next head position
+// - checks wall collision
+// - checks self collision
+// - moves the snake forward
+// - grows the snake if food is eaten
+// - updates the score
 void updateSnakeGame() {
   if (snakeGameOver) {
     return;
@@ -136,6 +170,10 @@ void updateSnakeGame() {
   }
 }
 
+// drawSnakeBoard(float boardX, float boardY)
+// Draws the snake and food inside the board area.
+// The head is drawn in a brighter green than the body.
+// Food is drawn in red.
 void drawSnakeBoard(float boardX, float boardY) {
   float actualCellSize = 600.0 / cols;
 
@@ -167,6 +205,10 @@ void drawSnakeBoard(float boardX, float boardY) {
   );
 }
 
+// handleSnakeInput()
+// Handles keyboard controls for Snake.
+// Arrow keys change direction.
+// R resets the game after losing or whenever the player wants.
 void handleSnakeInput() {
   if (keyCode == UP && dirY != 1) {
     dirX = 0;

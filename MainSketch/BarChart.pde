@@ -33,7 +33,7 @@ class BarChart {
       } catch (Exception e) {
         values[i] = 0;
       }
-      visible[i] = true;
+      visible[i] = false;
     }
     updateMaxValue();
   }

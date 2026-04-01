@@ -62,6 +62,9 @@ int selectedAirportIndex = 0;
 int selectedStartDateIndex = 0;
 int selectedEndDateIndex = 0;
 
+int graphAirportIndex = 0;
+String graphSelectedAirport = "ALL";
+
 boolean sortByLateness = false;
 boolean dataLoaded = false;
 int visibleFlightCount = 12;
@@ -119,6 +122,8 @@ void setup() {
   initSnakeGame();
   loadFlightData("flights2k.csv");
   initialiseFilterState();
+  buildFlightDateChart();
+  buildFlightScatterPlot();
 }
 
 // draw()
@@ -390,8 +395,11 @@ void mousePressed() {
     if (handleGraphAirportDropdownClick(mouseX, mouseY)) {
       return;
     }
-  }else if (currentScreen == 5) {
+  } else if (currentScreen == 5) {
+    if (flightAirportScatter != null) {
+      flightAirportScatter.handleClick(mouseX, mouseY);
     }
+  }
   updateSnakeUnlock();
   
   if (currentScreen == 4 && flightDateChart != null && !graphAirportDropdownOpen) {
@@ -500,23 +508,18 @@ void drawHomeScreen() {
 // It computes flights per date, shortens the date labels,
 // builds the chart data, and updates the chart title/axis labels.
 void buildFlightDateChart() {
-  computeFlightsPerDate(filteredFlights);
-
-  String[] shortLabels = new String[flightDates.length];
-  for (int i = 0; i < flightDates.length; i++) {
-    shortLabels[i] = formatDateForChartLabel(flightDates[i]);
-  }
-
-  String countsStr = "";
-  for (int i = 0; i < flightCounts.length; i++) {
-    countsStr += flightCounts[i];
-    if (i < flightCounts.length - 1) countsStr += ",";
-  }
-
-  String[] csvData = flightCounts.length == 0 ? new String[0] : new String[] { countsStr };
-  flightDateChart = new BarChart(120, 660, 960, 480, csvData, shortLabels);
-  flightDateChart.setChartTitle(getChartTitle());
+  ArrayList<Flight> chartFlights = getGraphBarChartFlights();
+  BarChartData data = getBarChartData(chartFlights);
+  flightDateChart = new BarChart(120, 660, 960, 480, data.csvData, data.labels);
+  flightDateChart.setChartTitle(getGraphChartTitle());
   flightDateChart.setAxisTitles("Date (MM/DD)", "Number of Flights");
+}
+
+void buildFlightScatterPlot() {
+  ScatterPlotData data = getScatterPlotData(flights);
+  flightAirportScatter = new ScatterPlot(110, 660, 820, 480, data.valuesX, data.valuesY, data.sizes, data.carriers);
+  flightAirportScatter.setChartTitle("Flight Delay by Time");
+  flightAirportScatter.setAxisTitles("Date + Flight Time", "Delay (min)");
 }
 
 // drawGraphScreen()
@@ -538,7 +541,6 @@ void drawGraphScreen() {
   fill(40);
   textSize(16);
   text("Airport", 975, 115);
-  drawAirportDropdown();
   
   fill(255);
   textAlign(CENTER, CENTER);
@@ -546,7 +548,7 @@ void drawGraphScreen() {
   text("Flight Data - Bar Chart", width / 2, 62);
 
   textSize(14);
-  text("Airport: " + getAirportDisplayLabel() + "   Dates: " + getDateRangeLabel() + "   Matching flights: " + filteredFlights.size(), width / 2, 90);
+  text("Use the airport dropdown on this page. This chart is independent from the results screen controls.", width / 2, 90);
 
   if (flightDateChart != null) {
     flightDateChart.drawBarChart();
@@ -556,6 +558,7 @@ void drawGraphScreen() {
     text("Chart could not be built (no data loaded).", width / 2, height / 2);
   }
 
+  drawAirportDropdown();
   drawNavBar();
 }
 
@@ -577,7 +580,7 @@ void drawScatterScreen() {
   text("Flight Data - ScatterPlot", width / 2, 62);
 
   textSize(14);
-  text("Airport: " + getAirportDisplayLabel() + "   Dates: " + getDateRangeLabel() + "   Matching flights: " + filteredFlights.size(), width / 2, 90);
+  text("Showing all loaded flights. Carrier filter only affects this scatter plot.", width / 2, 90);
 
   if (flightAirportScatter != null) {
     flightAirportScatter.drawScatterPlot();
@@ -604,6 +607,8 @@ void initialiseFilterState() {
 
   int defaultIndex = findStringIndex(airportOptions, defaultAirport);
   selectedAirportIndex = defaultIndex >= 0 ? defaultIndex : 0;
+  graphAirportIndex = selectedAirportIndex;
+  graphSelectedAirport = airportOptions[graphAirportIndex];
 
   if (dateOptions.length > 0) {
     selectedStartDateIndex = 0;
@@ -622,7 +627,6 @@ void initialiseFilterState() {
 void applyActiveFilters() {
   if (!dataLoaded) {
     filteredFlights.clear();
-    buildFlightDateChart();
     return;
   }
 
@@ -657,7 +661,6 @@ void applyActiveFilters() {
   }
 
   sortButton.label = sortByLateness ? "Sort: Most Late" : "Sort: File Order";
-  buildFlightDateChart();
 }
 
 // resetFilters()
@@ -820,6 +823,10 @@ String getAirportDisplayLabel() {
   return selectedAirport.equals("ALL") ? "All airports" : selectedAirport;
 }
 
+String getGraphAirportDisplayLabel() {
+  return graphSelectedAirport.equals("ALL") ? "All airports" : graphSelectedAirport;
+}
+
 // getDateRangeLabel()
 // Returns a readable label for the currently selected date range.
 // If both dates are empty, it returns "All dates".
@@ -857,6 +864,27 @@ String getChartTitle() {
   return selectedAirport + " Flights per Date";
 }
 
+String getGraphChartTitle() {
+  if (graphSelectedAirport.equals("ALL")) {
+    return "Flights per Date";
+  }
+  return graphSelectedAirport + " Flights per Date";
+}
+
+ArrayList<Flight> getGraphBarChartFlights() {
+  if (graphSelectedAirport.equals("ALL")) {
+    return flights;
+  }
+
+  ArrayList<Flight> graphFlights = new ArrayList<Flight>();
+  for (Flight flight : flights) {
+    if (flight.origin.equals(graphSelectedAirport) || flight.dest.equals(graphSelectedAirport)) {
+      graphFlights.add(flight);
+    }
+  }
+  return graphFlights;
+}
+
 // drawAirportDropdown()
 // Draws the custom airport dropdown used on the graph screen.
 // It draws:
@@ -881,7 +909,7 @@ void drawAirportDropdown() {
   fill(40);
   textAlign(LEFT, CENTER);
   textSize(14);
-  text(getAirportDisplayLabel(), cardX + 12, cardY + cardH / 2);
+  text(getGraphAirportDisplayLabel(), cardX + 12, cardY + cardH / 2);
 
   textAlign(CENTER, CENTER);
   textSize(12);
@@ -906,7 +934,7 @@ void drawAirportDropdown() {
       float itemY = listY + i * graphAirportDropdownItemH;
       boolean isHovered = mouseX >= cardX && mouseX <= cardX + cardW &&
                           mouseY >= itemY && mouseY <= itemY + graphAirportDropdownItemH;
-      boolean isSelected = optionIndex == selectedAirportIndex;
+      boolean isSelected = optionIndex == graphAirportIndex;
 
       if (isHovered || isSelected) {
         noStroke();
@@ -968,9 +996,10 @@ boolean handleGraphAirportDropdownClick(int mx, int my) {
     int optionIndex = graphAirportDropdownScroll + itemIndex;
 
     if (optionIndex >= 0 && optionIndex < airportOptions.length) {
-      selectedAirportIndex = optionIndex;
+      graphAirportIndex = optionIndex;
+      graphSelectedAirport = airportOptions[graphAirportIndex];
       graphAirportDropdownOpen = false;
-      applyActiveFilters();
+      buildFlightDateChart();
     }
     return true;
   }

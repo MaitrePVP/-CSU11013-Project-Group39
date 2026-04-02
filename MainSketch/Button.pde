@@ -56,6 +56,54 @@ class Button {
 
     popStyle();
   }
+  
+  // displayNav(boolean selected)
+  // Draws the button as a flat navigation tab.
+  // No rounded corners, no stroke — integrated into the header bar.
+  // Selected tab gets a bright accent line and lifted appearance.
+  // Hover shows a visible lighter background.
+  void displayNav(boolean selected) {
+    pushStyle();
+    noStroke();
+
+    // background fill
+    if (selected) {
+      fill(38, 72, 120);
+    } else if (isMouseOver()) {
+      fill(30, 60, 105);
+    } else {
+      fill(18, 40, 72);
+    }
+    rect(x, y, w, h);
+
+    // active tab: bright accent bar at the bottom
+    if (selected) {
+      fill(80, 170, 255);
+      rect(x + 4, y + h - 3, w - 8, 3, 1);
+    }
+
+    // hover: subtle top highlight
+    if (isMouseOver() && !selected) {
+      fill(255, 12);
+      rect(x, y, w, h);
+    }
+
+    // separator between inactive tabs
+    if (!selected) {
+      stroke(30, 55, 95, 120);
+      strokeWeight(1);
+      line(x + w, y + 12, x + w, y + h - 12);
+    }
+
+    noStroke();
+    fill(selected ? 255 : 170);
+    if (isMouseOver() && !selected) fill(220);
+    textSize(fontSize);
+    textAlign(CENTER, CENTER);
+    text(label, x + w / 2, y + h / 2 - 2);
+
+    popStyle();
+  }
   // isMouseOver()
   // Returns true if the mouse is currently inside the button rectangle.
   // Used for click handling and hover effects.

@@ -5,6 +5,7 @@ class BarChart {
 
   int x, y, width, height, gap = 12, maxValue = 1, topPadding = 30;
   int legendWidth = 180, legendItemHeight = 24, legendBoxSize = 14, legendPadding = 16;
+  int legendRowsPerColumn = 16, legendColumnGap = 18, legendColumnWidth = 88;
 
   String xAxisTitle = "X Axis", yAxisTitle = "Y Axis", chartTitle = "Bar Chart Title";
   PFont chartFont;
@@ -50,7 +51,7 @@ class BarChart {
     }
 
     int visibleCount = getVisibleCount();
-    int chartWidth = width - legendWidth - 20;
+    int chartWidth = width - getLegendAreaWidth() - 20;
     float usableHeight = height - topPadding;
 
     drawGridLines();
@@ -103,7 +104,7 @@ class BarChart {
   }
 
   void drawAxes() {
-    int cw = width - legendWidth - 20;
+    int cw = width - getLegendAreaWidth() - 20;
     stroke(0);
     strokeWeight(2);
     line(x, y, x + cw, y);
@@ -123,7 +124,7 @@ class BarChart {
   }
 
   void drawGridLines() {
-    int steps = 5, cw = width - legendWidth - 20;
+    int steps = 5, cw = width - getLegendAreaWidth() - 20;
     float usableHeight = height - topPadding;
 
     for (int i = 0; i <= steps; i++) {
@@ -143,11 +144,11 @@ class BarChart {
     fill(0);
     textSize(22);
     textAlign(CENTER, CENTER);
-    text(chartTitle, x + (width - legendWidth) / 2, y - height - 20);
+    text(chartTitle, x + (width - getLegendAreaWidth()) / 2, y - height - 20);
   }
 
   void drawLegend() {
-    int lx = x + width - legendWidth + legendPadding;
+    int lx = x + width - getLegendAreaWidth() + legendPadding;
     int ly = y - height + 20;
 
     fill(0);
@@ -156,34 +157,37 @@ class BarChart {
     text("Dates", lx, ly - 4);
 
     for (int i = 0; i < values.length; i++) {
-      int iy = ly + 24 + i * legendItemHeight;
-      boolean hovered = mouseX >= lx && mouseX <= lx + legendWidth - 2 * legendPadding &&
+      int col = i / legendRowsPerColumn;
+      int row = i % legendRowsPerColumn;
+      int itemX = lx + col * (legendColumnWidth + legendColumnGap);
+      int iy = ly + 24 + row * legendItemHeight;
+      boolean hovered = mouseX >= itemX && mouseX <= itemX + legendColumnWidth &&
                         mouseY >= iy && mouseY <= iy + legendBoxSize;
 
       if (hovered) {
         noStroke();
         fill(245);
-        rect(lx - 4, iy - 3, legendWidth - 2 * legendPadding, legendBoxSize + 6, 4);
+        rect(itemX - 4, iy - 3, legendColumnWidth, legendBoxSize + 6, 4);
       }
 
       stroke(80);
       strokeWeight(1);
       fill(visible[i] ? color(195, 195, 25) : color(255));
-      rect(lx, iy, legendBoxSize, legendBoxSize);
+      rect(itemX, iy, legendBoxSize, legendBoxSize);
 
       stroke(visible[i] ? 40 : 140);
       if (visible[i]) {
-        line(lx + 3, iy + 7, lx + 6, iy + 10);
-        line(lx + 6, iy + 10, lx + 11, iy + 3);
+        line(itemX + 3, iy + 7, itemX + 6, iy + 10);
+        line(itemX + 6, iy + 10, itemX + 11, iy + 3);
       } else {
-        line(lx + 3, iy + 3, lx + 11, iy + 11);
-        line(lx + 11, iy + 3, lx + 3, iy + 11);
+        line(itemX + 3, iy + 3, itemX + 11, iy + 11);
+        line(itemX + 11, iy + 3, itemX + 3, iy + 11);
       }
 
       fill(visible[i] ? 0 : 140);
       textSize(13);
       textAlign(LEFT, TOP);
-      text((labels != null && i < labels.length) ? labels[i] : "Date " + (i + 1), lx + legendBoxSize + 10, iy - 1);
+      text((labels != null && i < labels.length) ? labels[i] : "Date " + (i + 1), itemX + legendBoxSize + 10, iy - 1);
     }
   }
 
@@ -193,7 +197,7 @@ class BarChart {
 
     float avg = getAverageOfVisible();
     float avgY = y - (avg / maxValue) * (height - topPadding);
-    int cw = width - legendWidth - 20;
+    int cw = width - getLegendAreaWidth() - 20;
 
     stroke(200, 60, 60);
     strokeWeight(2);
@@ -206,16 +210,18 @@ class BarChart {
   }
 
   void handleClick(int mx, int my) {
-    int lx = x + width - legendWidth + legendPadding;
+    int lx = x + width - getLegendAreaWidth() + legendPadding;
     int ly = y - height + 44;
 
     for (int i = 0; i < values.length; i++) {
-      int iy = ly + i * legendItemHeight;
-      boolean hitSquare = mx >= lx && mx <= lx + legendBoxSize && my >= iy && my <= iy + legendBoxSize;
-      boolean hitLabel = mx >= lx && mx <= lx + legendWidth - 2 * legendPadding &&
-                         my >= iy - 2 && my <= iy + legendBoxSize + 2;
+      int col = i / legendRowsPerColumn;
+      int row = i % legendRowsPerColumn;
+      int itemX = lx + col * (legendColumnWidth + legendColumnGap);
+      int iy = ly + row * legendItemHeight;
+      boolean hitSquare = mx >= itemX && mx <= itemX + legendBoxSize &&
+                          my >= iy && my <= iy + legendBoxSize;
 
-      if (hitSquare || hitLabel) {
+      if (hitSquare) {
         visible[i] = !visible[i];
         updateMaxValue();
         return;
@@ -235,7 +241,7 @@ class BarChart {
     float diff = values[index] - avg;
 
     float boxW = 150, boxH = 82;
-    float boxX = constrain(barX + barWidth / 2 - boxW / 2, x + 10, x + (width - legendWidth - 20) - boxW);
+    float boxX = constrain(barX + barWidth / 2 - boxW / 2, x + 10, x + (width - getLegendAreaWidth() - 20) - boxW);
     float boxY = max(barTop - boxH - 14, 10);
     if (boxY == 10) boxY = barTop + 10;
 
@@ -259,6 +265,15 @@ class BarChart {
     text("Value: " + values[index], boxX + 12, boxY + 30);
     text("Of max: " + nf(percent, 0, 1) + "%", boxX + 12, boxY + 46);
     text("Vs avg: " + (diff >= 0 ? "+" : "") + nf(diff, 0, 1), boxX + 12, boxY + 62);
+  }
+
+
+  int getLegendColumns() {
+    return max(1, (values.length + legendRowsPerColumn - 1) / legendRowsPerColumn);
+  }
+
+  int getLegendAreaWidth() {
+    return legendPadding * 2 + getLegendColumns() * legendColumnWidth + (getLegendColumns() - 1) * legendColumnGap;
   }
 
   int getVisibleCount() {

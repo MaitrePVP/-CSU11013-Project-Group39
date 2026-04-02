@@ -1,25 +1,20 @@
 class ScatterPlot {
-
-  float[] valuesX;
-  float[] valuesY;
-  float[] sizes;
-  String[] origins;
+  float[] valuesX, valuesY, sizes;
+  String[] carriers, uniqueCarriers;
+  boolean[] carrierVisible;
 
   int x, y, width, height;
-
   String xAxisTitle = "X Axis";
   String yAxisTitle = "Y Axis";
   String chartTitle = "Scatter Plot";
-
   PFont chartFont;
 
-  // Visual size range for points
   float minPointSize = 8;
-  float maxPointSize = 48;
+  float maxPointSize = 30;
+  float plotMargin = 4;
 
   ScatterPlot(int x, int y, int width, int height,
-              float[] valuesX, float[] valuesY, float[] sizes, String[] origins) {
-
+              float[] valuesX, float[] valuesY, float[] sizes, String[] carriers) {
     this.x = x;
     this.y = y;
     this.width = width;
@@ -27,57 +22,84 @@ class ScatterPlot {
     this.valuesX = valuesX;
     this.valuesY = valuesY;
     this.sizes = sizes;
-    this.origins = origins;
-
+    this.carriers = carriers;
     chartFont = createFont("Arial", 16, true);
+
+    uniqueCarriers = getUnique(carriers);
+    carrierVisible = new boolean[uniqueCarriers.length];
+    for (int i = 0; i < carrierVisible.length; i++) carrierVisible[i] = false;
   }
 
   void drawScatterPlot() {
     textFont(chartFont);
+    drawTitle();
 
     if (valuesX == null || valuesX.length == 0) {
-      fill(0);
-      textAlign(CENTER, CENTER);
-      textSize(20);
-      text("No data available", x + width / 2, y - height / 2);
+      drawEmptyMessage("No data available");
       return;
     }
 
-    float minX = 0;
-    float minY = 0;
-    float maxX = max(valuesX);
-    float maxY = max(valuesY);
-    float minSize = min(sizes);
-    float maxSize = max(sizes);
+    float[] r = getRanges();
+    float minX = r[0], maxX = r[1], minY = r[2], maxY = r[3], minSize = r[4], maxSize = r[5];
 
     drawGridLines(minX, maxX, minY, maxY);
-    drawAxes();
-    drawTitle();
-
-    int hoveredIndex = drawPoints(minX, maxX, minY, maxY, minSize, maxSize);
-
+    drawAxes(minY, maxY);
     drawLegend();
 
-    if (hoveredIndex != -1) {
-      drawTooltip(hoveredIndex, minX, maxX, minY, maxY, minSize, maxSize);
+    if (!hasVisibleCarrier()) {
+      drawEmptyMessage("No carrier selected");
+      return;
     }
+
+    int hovered = drawPoints(minX, maxX, minY, maxY, minSize, maxSize);
+    drawAverageLine(minY, maxY);
+    if (hovered != -1) drawTooltip(hovered, minX, maxX, minY, maxY, minSize, maxSize);
   }
 
-  void drawAxes() {
+  float[] getRanges() {
+    float minX = min(valuesX), maxX = max(valuesX);
+    float minY = min(valuesY), maxY = max(valuesY);
+    float minSize = max(1, min(sizes)), maxSize = max(sizes);
+
+    if (minX == maxX) maxX = minX + 1;
+    if (minY > 0) minY = 0;
+    if (maxY < 0) maxY = 0;
+    if (minY == maxY) {
+      minY--;
+      maxY++;
+    }
+    return new float[] {minX, maxX, minY, maxY, minSize, maxSize};
+  }
+
+  void drawEmptyMessage(String msg) {
+    fill(120);
+    textAlign(CENTER, CENTER);
+    textSize(20);
+    text(msg, x + width / 2.0, y - height / 2.0);
+  }
+
+  void drawAxes(float minY, float maxY) {
     stroke(0);
     strokeWeight(2);
-
     line(x, y, x + width, y);
     line(x, y, x, y - height);
 
-    fill(0);
-    textSize(18);
+    float zeroY = getPlotY(0, minY, maxY, 0);
+    stroke(130);
+    strokeWeight(1);
+    line(x, zeroY, x + width, zeroY);
 
+    fill(0);
+    textSize(12);
+    textAlign(RIGHT, CENTER);
+    text("0", x - 8, zeroY);
+
+    textSize(18);
     textAlign(CENTER, TOP);
-    text(xAxisTitle, x + width / 2, y + 20);
+    text(xAxisTitle, x + width / 2.0, y + 22);
 
     pushMatrix();
-    translate(x - 50, y - height / 2);
+    translate(x - 55, y - height / 2.0);
     rotate(-HALF_PI);
     textAlign(CENTER, CENTER);
     text(yAxisTitle, 0, 0);
@@ -86,7 +108,6 @@ class ScatterPlot {
 
   void drawGridLines(float minX, float maxX, float minY, float maxY) {
     int steps = 5;
-
     stroke(225);
     strokeWeight(1);
     fill(0);
@@ -94,151 +115,101 @@ class ScatterPlot {
 
     for (int i = 0; i <= steps; i++) {
       float xPos = map(i, 0, steps, x, x + width);
-      float xVal = map(i, 0, steps, minX, maxX);
+      float yPos = map(i, 0, steps, y, y - height);
 
       line(xPos, y, xPos, y - height);
-      textAlign(CENTER, TOP);
-      text(nf(xVal, 0, 0), xPos, y + 6);
-    }
-
-    for (int i = 0; i <= steps; i++) {
-      float yPos = map(i, 0, steps, y, y - height);
-      float yVal = map(i, 0, steps, minY, maxY);
-
       line(x, yPos, x + width, yPos);
+
+      textAlign(CENTER, TOP);
+      text(formatXLabel(map(i, 0, steps, minX, maxX)), xPos, y + 6);
       textAlign(RIGHT, CENTER);
-      text(nf(yVal, 0, 0), x - 8, yPos);
+      text(nf(map(i, 0, steps, minY, maxY), 0, 1), x - 8, yPos);
     }
   }
 
-  int drawPoints(float minX, float maxX, float minY, float maxY,
-                 float minSize, float maxSize) {
-
-    int hoveredIndex = -1;
-
-    noStroke();
+  int drawPoints(float minX, float maxX, float minY, float maxY, float minSize, float maxSize) {
+    int hovered = -1;
 
     for (int i = 0; i < valuesX.length; i++) {
-      float px = map(valuesX[i], minX, maxX, x, x + width);
-      float py = map(valuesY[i], minY, maxY, y, y - height);
-      float pointSize = mapSize(sizes[i], minSize, maxSize);
+      int c = indexOf(uniqueCarriers, carriers[i]);
+      if (c < 0 || !carrierVisible[c]) continue;
 
-      boolean isHovered = dist(mouseX, mouseY, px, py) <= pointSize / 2;
+      float d = mapSize(sizes[i], minSize, maxSize);
+      float px = getPlotX(valuesX[i], minX, maxX, d);
+      float py = getPlotY(valuesY[i], minY, maxY, d);
+      boolean over = dist(mouseX, mouseY, px, py) <= d / 2.0;
 
-      if (isHovered) {
-        hoveredIndex = i;
-        fill(getHoverColor(origins[i]));
-        stroke(50, 80);
-        strokeWeight(1.5);
-      } else {
-        fill(getColor(origins[i]));
-        noStroke();
-      }
+      stroke(over ? color(40, 120) : color(255, 50));
+      strokeWeight(over ? 2 : 1);
+      fill(getCarrierColor(c), 170);
+      ellipse(px, py, d, d);
 
-      ellipse(px, py, pointSize, pointSize);
+      if (over) hovered = i;
+    }
+    return hovered;
+  }
+
+  void drawAverageLine(float minY, float maxY) {
+    float avg = getVisibleAverageDelay();
+    if (Float.isNaN(avg)) return;
+
+    float avgY = getPlotY(avg, minY, maxY, 0);
+    String label = "Average: " + nf(avg, 0, 1);
+    float labelX = x - 118;
+    float labelW = textWidth(label);
+    float labelH = 18;
+    boolean hover = mouseX >= labelX - 6 && mouseX <= labelX + labelW + 6 &&
+      mouseY >= avgY - labelH / 2.0 - 4 && mouseY <= avgY + labelH / 2.0 + 4;
+
+    stroke(220, 50, 50);
+    strokeWeight(2);
+    for (int xp = x; xp < x + width; xp += 12) line(xp, avgY, min(xp + 6, x + width), avgY);
+
+    if (hover) {
+      noStroke();
+      fill(255);
+      rect(labelX - 4, avgY - labelH / 2.0 - 2, labelW + 8, labelH, 4);
     }
 
-    return hoveredIndex;
-  }
-
-  // Continuous size mapping:
-  // every distinct numeric input value gets its own plotted size
-  float mapSize(float value, float minSizeValue, float maxSizeValue) {
-    if (minSizeValue == maxSizeValue) {
-      return (minPointSize + maxPointSize) / 2.0;
-    }
-    return map(value, minSizeValue, maxSizeValue, minPointSize, maxPointSize);
-  }
-
-  color getColor(String category) {
-    String[] unique = getUnique(origins);
-    int idx = indexOf(unique, category);
-
-    color[] palette = {
-      color(100, 140, 220, 160),
-      color(235, 170, 130, 160),
-      color(120, 200, 120, 160),
-      color(180, 130, 220, 160),
-      color(240, 210, 90, 160),
-      color(110, 200, 200, 160),
-      color(220, 120, 160, 160),
-      color(160, 160, 160, 160)
-    };
-
-    return palette[idx % palette.length];
-  }
-
-  color getHoverColor(String category) {
-    String[] unique = getUnique(origins);
-    int idx = indexOf(unique, category);
-
-    color[] palette = {
-      color(70, 110, 210, 220),
-      color(225, 145, 100, 220),
-      color(90, 180, 100, 220),
-      color(160, 110, 210, 220),
-      color(220, 190, 60, 220),
-      color(80, 180, 180, 220),
-      color(210, 90, 140, 220),
-      color(130, 130, 130, 220)
-    };
-
-    return palette[idx % palette.length];
+    fill(220, 50, 50);
+    textSize(12);
+    textAlign(LEFT, CENTER);
+    text(label, labelX, avgY);
   }
 
   void drawLegend() {
-    float lx = x + width + 40;
-    float ly = y - height + 40;
-
-    String[] unique = getUnique(origins);
+    float lx = x + width + 34;
+    float ly = y - height + 34;
+    float box = 14;
+    float row = 24;
 
     fill(0);
-    textSize(14);
-    textAlign(LEFT, CENTER);
-    text("Origin", lx, ly);
+    textSize(15);
+    textAlign(LEFT, TOP);
+    text("Carrier", lx, ly - 4);
 
-    for (int i = 0; i < unique.length; i++) {
-      fill(getColor(unique[i]));
-      noStroke();
-      ellipse(lx + 8, ly + 25 + i * 24, 10, 10);
+    for (int i = 0; i < uniqueCarriers.length; i++) {
+      float iy = ly + 24 + i * row;
+      stroke(90);
+      strokeWeight(1);
+      fill(carrierVisible[i] ? getCarrierColor(i) : color(190));
+      rect(lx, iy, box, box, 3);
 
-      fill(0);
-      text(unique[i], lx + 24, ly + 25 + i * 24);
+      fill(carrierVisible[i] ? 0 : 140);
+      textSize(13);
+      textAlign(LEFT, CENTER);
+      text(uniqueCarriers[i], lx + box + 12, iy + box / 2.0);
     }
   }
 
-  void drawTooltip(int index, float minX, float maxX, float minY, float maxY,
-                   float minSize, float maxSize) {
+  void drawTooltip(int i, float minX, float maxX, float minY, float maxY, float minSize, float maxSize) {
+    float d = mapSize(sizes[i], minSize, maxSize);
+    float px = getPlotX(valuesX[i], minX, maxX, d);
+    float py = getPlotY(valuesY[i], minY, maxY, d);
 
-    float px = map(valuesX[index], minX, maxX, x, x + width);
-    float py = map(valuesY[index], minY, maxY, y, y - height);
-
-    float avgX = getAverage(valuesX);
-    float avgY = getAverage(valuesY);
-    
-    // percentage differences
-    float vsAvgX = avgX != 0 ? ((valuesX[index] - avgX) / avgX) * 100.0 : 0;
-    float vsAvgY = avgY != 0 ? ((valuesY[index] - avgY) / avgY) * 100.0 : 0;
-    
-    String originText = "Origin: " + origins[index];
-    String xText = xAxisTitle + ": " + nf(valuesX[index], 0, 1);
-    String yText = yAxisTitle + ": " + nf(valuesY[index], 0, 1);
-    String sizeText = "Size metric: " + nf(sizes[index], 0, 1);
-
-    String vsAvgXText = "Vs avg X: " + formatPercent(vsAvgX);
-    String vsAvgYText = "Vs avg Y: " + formatPercent(vsAvgY);
-
-    float boxW = 180;
-    float boxH = 120;
-    float boxX = px + 14;
-    float boxY = py - boxH - 10;
-
-    if (boxX + boxW > x + width) {
-      boxX = px - boxW - 14;
-    }
-    if (boxY < y - height) {
-      boxY = py + 14;
-    }
+    float boxW = 168, boxH = 86;
+    float boxX = (px + 14 + boxW > x + width) ? px - boxW - 14 : px + 14;
+    float boxY = (py - boxH - 10 < y - height) ? py + 14 : py - boxH - 10;
 
     noStroke();
     fill(0, 25);
@@ -250,62 +221,91 @@ class ScatterPlot {
     rect(boxX, boxY, boxW, boxH, 8);
 
     fill(20);
-    textAlign(LEFT, TOP);
-
-    textSize(13);
-    text(originText, boxX + 12, boxY + 10);
-
     textSize(12);
-    text(xText,      boxX + 12, boxY + 30);
-    text(yText,      boxX + 12, boxY + 46);
-    text(sizeText,   boxX + 12, boxY + 62);
-    text(vsAvgXText, boxX + 12, boxY + 78);
-    text(vsAvgYText, boxX + 12, boxY + 94);
+    textAlign(LEFT, TOP);
+    text("Carrier: " + carriers[i], boxX + 12, boxY + 10);
+    text("Flight time: " + formatXLabel(valuesX[i]), boxX + 12, boxY + 28);
+    text("Delay: " + formatSigned(valuesY[i]) + " min", boxX + 12, boxY + 46);
+    text("Distance: " + nf(sizes[i], 0, 0), boxX + 12, boxY + 64);
   }
 
-  void drawTitle() {
-    fill(0);
-    textSize(22);
-    textAlign(CENTER, CENTER);
-    text(chartTitle, x + width / 2, y - height - 20);
+  boolean hasVisibleCarrier() {
+    for (boolean v : carrierVisible) if (v) return true;
+    return false;
   }
 
-  float getAverage(float[] arr) {
-    if (arr == null || arr.length == 0) return 0;
-
-    float sum = 0;
-    for (int i = 0; i < arr.length; i++) {
-      sum += arr[i];
+  float getVisibleAverageDelay() {
+    float total = 0;
+    int count = 0;
+    for (int i = 0; i < valuesY.length; i++) {
+      int c = indexOf(uniqueCarriers, carriers[i]);
+      if (c >= 0 && carrierVisible[c]) {
+        total += valuesY[i];
+        count++;
+      }
     }
-    return sum / arr.length;
+    return count == 0 ? Float.NaN : total / count;
   }
 
-  String formatSigned(float value) {
-    if (value >= 0) {
-      return "+" + nf(value, 0, 1);
+  float mapSize(float v, float minV, float maxV) {
+    return minV == maxV ? (minPointSize + maxPointSize) / 2.0 : map(v, minV, maxV, minPointSize, maxPointSize);
+  }
+
+  int getCarrierColor(int i) {
+    colorMode(HSB, 255);
+    int c = color((i * 57) % 255, 170, 210);
+    colorMode(RGB, 255);
+    return c;
+  }
+
+  float getPlotX(float v, float minX, float maxX, float size) {
+    float m = size / 2.0 + plotMargin;
+    return map(v, minX, maxX, x + m, x + width - m);
+  }
+
+  float getPlotY(float v, float minY, float maxY, float size) {
+    float m = size / 2.0 + plotMargin;
+    return map(v, minY, maxY, y - m, y - height + m);
+  }
+
+  String formatXLabel(float value) {
+    int day = floor(value);
+    int mins = round((value - day) * 1440.0);
+    if (mins >= 1440) {
+      mins = 0;
+      day++;
     }
-    return nf(value, 0, 1);
+    return day + " " + nf(mins / 60, 2) + ":" + nf(mins % 60, 2);
+  }
+
+  String formatSigned(float v) {
+    return v > 0 ? "+" + nf(v, 0, 0) : nf(v, 0, 0);
   }
 
   String[] getUnique(String[] arr) {
-    ArrayList<String> unique = new ArrayList<String>();
-
-    for (String value : arr) {
-      if (!unique.contains(value)) {
-        unique.add(value);
-      }
-    }
-
-    return unique.toArray(new String[0]);
+    ArrayList<String> out = new ArrayList<String>();
+    for (String s : arr) if (s != null && !s.equals("") && !out.contains(s)) out.add(s);
+    return out.toArray(new String[0]);
   }
 
   int indexOf(String[] arr, String value) {
-    for (int i = 0; i < arr.length; i++) {
-      if (arr[i].equals(value)) {
-        return i;
+    for (int i = 0; i < arr.length; i++) if (arr[i].equals(value)) return i;
+    return -1;
+  }
+
+  void handleClick(int mx, int my) {
+    float lx = x + width + 34;
+    float ly = y - height + 58;
+    float box = 14;
+    float row = 24;
+
+    for (int i = 0; i < uniqueCarriers.length; i++) {
+      float iy = ly + i * row;
+      if (mx >= lx && mx <= lx + box && my >= iy && my <= iy + box) {
+        carrierVisible[i] = !carrierVisible[i];
+        return;
       }
     }
-    return 0;
   }
 
   void setAxisTitles(String xTitle, String yTitle) {
@@ -316,9 +316,11 @@ class ScatterPlot {
   void setChartTitle(String title) {
     chartTitle = title;
   }
-  
-  String formatPercent(float value) {
-    String sign = value > 0 ? "+" : "";
-    return sign + nf(value, 0, 1) + "%";
+
+  void drawTitle() {
+    fill(0);
+    textSize(22);
+    textAlign(CENTER, CENTER);
+    text(chartTitle, x + width / 2.0, y - height - 20);
   }
 }

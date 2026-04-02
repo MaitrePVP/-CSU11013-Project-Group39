@@ -71,6 +71,92 @@ class Flight {
 String[] flightDates  = new String[0];
 int[] flightCounts = new int[0];
 
+
+class BarChartData {
+  String[] labels;
+  String[] csvData;
+
+  BarChartData(String[] labels, String[] csvData) {
+    this.labels = labels;
+    this.csvData = csvData;
+  }
+}
+
+class ScatterPlotData {
+  float[] valuesX;
+  float[] valuesY;
+  float[] sizes;
+  String[] carriers;
+
+  ScatterPlotData(float[] valuesX, float[] valuesY, float[] sizes, String[] carriers) {
+    this.valuesX = valuesX;
+    this.valuesY = valuesY;
+    this.sizes = sizes;
+    this.carriers = carriers;
+  }
+}
+
+BarChartData getBarChartData(ArrayList<Flight> sourceFlights) {
+  computeFlightsPerDate(sourceFlights);
+
+  String[] labels = new String[flightDates.length];
+  for (int i = 0; i < flightDates.length; i++) {
+    labels[i] = formatDateForChartLabel(flightDates[i]);
+  }
+
+  String counts = "";
+  for (int i = 0; i < flightCounts.length; i++) {
+    if (i > 0) counts += ",";
+    counts += flightCounts[i];
+  }
+
+  String[] csvData = flightCounts.length == 0 ? new String[0] : new String[] { counts };
+  return new BarChartData(labels, csvData);
+}
+
+ScatterPlotData getScatterPlotData(ArrayList<Flight> sourceFlights) {
+  if (sourceFlights == null || sourceFlights.size() == 0) {
+    return new ScatterPlotData(new float[0], new float[0], new float[0], new String[0]);
+  }
+
+  String[] keys = getDateKeysFromFlights(sourceFlights);
+  HashMap<String, Integer> dayOrder = new HashMap<String, Integer>();
+  for (int i = 0; i < keys.length; i++) {
+    dayOrder.put(keys[i], i + 1);
+  }
+
+  int count = sourceFlights.size();
+  float[] valuesX = new float[count];
+  float[] valuesY = new float[count];
+  float[] sizes = new float[count];
+  String[] carriers = new String[count];
+
+  for (int i = 0; i < count; i++) {
+    Flight f = sourceFlights.get(i);
+    String key = f.getDateKey();
+    int dayIndex = dayOrder.containsKey(key) ? dayOrder.get(key) : i + 1;
+    int minutes = hhmmToMinutes(f.crsDepTime);
+
+    valuesX[i] = dayIndex + minutes / 1440.0;
+    valuesY[i] = f.getDepartureDelay();
+    sizes[i] = max(1, f.distance);
+    carriers[i] = trim(f.airlineCode.equals("") ? "Unknown" : f.airlineCode);
+  }
+
+  return new ScatterPlotData(valuesX, valuesY, sizes, carriers);
+}
+
+String[] getDateKeysFromFlights(ArrayList<Flight> sourceFlights) {
+  HashMap<String, Integer> uniqueDates = new HashMap<String, Integer>();
+  for (Flight flight : sourceFlights) {
+    String dateKey = flight.getDateKey();
+    if (!dateKey.equals("")) uniqueDates.put(dateKey, 1);
+  }
+  String[] keys = (String[]) uniqueDates.keySet().toArray(new String[0]);
+  java.util.Arrays.sort(keys);
+  return keys;
+}
+
 void loadFlightData(String filename) {
   String[] lines = loadStrings(filename);
 
@@ -208,18 +294,7 @@ void addAirportCount(HashMap<String, Integer> airportCounts, String airportCode)
 }
 
 String[] getAvailableDateKeys() {
-  HashMap<String, Integer> uniqueDates = new HashMap<String, Integer>();
-
-  for (Flight flight : flights) {
-    String dateKey = flight.getDateKey();
-    if (!dateKey.equals("")) {
-      uniqueDates.put(dateKey, 1);
-    }
-  }
-
-  String[] keys = (String[]) uniqueDates.keySet().toArray(new String[0]);
-  java.util.Arrays.sort(keys);
-  return keys;
+  return getDateKeysFromFlights(flights);
 }
 
 String[] parseCsvLine(String line) {

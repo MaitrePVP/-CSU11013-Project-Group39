@@ -101,12 +101,12 @@ void setup() {
   scatterButton = new Button(990, 40, 170, 50, "See Scatter Plot");
   snakeButton = new Button(width / 2 - 120, 590, 240, 55, "Play Snake");
   
-  navHomeButton = new Button(20, 12, 110, 30, "Home", 14);
-  navResultsButton = new Button(140, 12, 110, 30, "Results", 14);
-  navInfoButton = new Button(260, 12, 110, 30, "Info", 14);
-  navGraphButton = new Button(380, 12, 130, 30, "Bar Chart", 14);
-  navScatterButton = new Button(520, 12, 130, 30, "Scatter", 14);
-  navSnakeButton = new Button(660, 12, 110, 30, "Snake", 14);
+  navHomeButton = new Button(0, 0, 200, 45, "Home", 15);
+  navResultsButton = new Button(200, 0, 200, 45, "Results", 15);
+  navInfoButton = new Button(400, 0, 200, 45, "Info", 15);
+  navGraphButton = new Button(600, 0, 200, 45, "Bar Chart", 15);
+  navScatterButton = new Button(800, 0, 200, 45, "ScatterPlot", 15);
+  navSnakeButton = new Button(1000, 0, 200, 45, "Snake", 15);
 
   airportPrevButton = new Button(95, 296, 42, 36, "<", 22);
   airportNextButton = new Button(303, 296, 42, 36, ">", 22);
@@ -174,7 +174,7 @@ void drawResultsScreen() {
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(32);
-  text("Results Screen", width / 2, 68);
+  text("Results Screen", width / 2, 75);
 
   fill(255);
   stroke(180);
@@ -238,12 +238,12 @@ void drawInfoScreen() {
 
   fill(30, 60, 100);
   noStroke();
-  rect(0, 0, width, 120);
+  rect(0, 0, width, 100);
 
   fill(255);
   textSize(34);
   textAlign(CENTER, CENTER);
-  text("Group Information", width / 2, 74);
+  text("Group Information", width / 2, 75);
 
   fill(255);
   stroke(180);
@@ -293,14 +293,41 @@ void drawMemberName(String name, float x, float y, boolean clicked) {
   text(name, x, y);
 }
 void drawNavBar() {
-  navHomeButton.display(currentScreen == 0);
-  navResultsButton.display(currentScreen == 1);
-  navInfoButton.display(currentScreen == 2);
-  navGraphButton.display(currentScreen == 4);
-  navScatterButton.display(currentScreen == 5);
+  pushStyle();
+  noStroke();
 
-  if (snakeUnlocked || currentScreen == 3) {
-    navSnakeButton.display(currentScreen == 3);
+  // full-width background strip
+  fill(18, 40, 72);
+  rect(0, 0, width, 48);
+
+  // subtle bottom edge glow
+  for (int i = 0; i < 3; i++) {
+    fill(60, 120, 200, 30 - i * 10);
+    rect(0, 48 - i, width, 1);
+  }
+
+  popStyle();
+
+  // tabs stretch edge-to-edge across the full window
+  boolean showSnake = snakeUnlocked || currentScreen == 3;
+  int tabCount = showSnake ? 6 : 5;
+  float tabW = (float) width / tabCount;
+
+  Button[] navButtons = { navHomeButton, navResultsButton, navInfoButton, navGraphButton, navScatterButton };
+  int[] screenIds = { 0, 1, 2, 4, 5 };
+
+  for (int i = 0; i < navButtons.length; i++) {
+    navButtons[i].x = round(i * tabW);
+    navButtons[i].w = round((i + 1) * tabW) - round(i * tabW);
+    navButtons[i].h = 48;
+    navButtons[i].displayNav(currentScreen == screenIds[i]);
+  }
+
+  if (showSnake) {
+    navSnakeButton.x = round(5 * tabW);
+    navSnakeButton.w = width - round(5 * tabW);
+    navSnakeButton.h = 48;
+    navSnakeButton.displayNav(currentScreen == 3);
   }
 }
 
@@ -539,16 +566,14 @@ void drawGraphScreen() {
   rect(0, 0, width, 100);
   
   fill(40);
+  textAlign(LEFT, CENTER);
   textSize(16);
   text("Airport", 975, 115);
   
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(32);
-  text("Flight Data - Bar Chart", width / 2, 62);
-
-  textSize(14);
-  text("Use the airport dropdown on this page. This chart is independent from the results screen controls.", width / 2, 90);
+  text("Flight Data - Bar Chart", width / 2, 75);
 
   if (flightDateChart != null) {
     flightDateChart.drawBarChart();
@@ -577,10 +602,8 @@ void drawScatterScreen() {
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(32);
-  text("Flight Data - ScatterPlot", width / 2, 62);
+  text("Flight Data - ScatterPlot", width / 2, 75);
 
-  textSize(14);
-  text("Showing all loaded flights. Carrier filter only affects this scatter plot.", width / 2, 90);
 
   if (flightAirportScatter != null) {
     flightAirportScatter.drawScatterPlot();

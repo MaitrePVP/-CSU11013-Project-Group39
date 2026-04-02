@@ -155,7 +155,7 @@ class ScatterPlot {
 
     float avgY = getPlotY(avg, minY, maxY, 0);
     String label = "Average: " + nf(avg, 0, 1);
-    float labelX = x - 118;
+    float labelX = x - 95;
     float labelW = textWidth(label);
     float labelH = 18;
     boolean hover = mouseX >= labelX - 6 && mouseX <= labelX + labelW + 6 &&

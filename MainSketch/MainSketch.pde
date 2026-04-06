@@ -71,6 +71,16 @@ int visibleFlightCount = 12;
 
 String loadMessage = "Data not loaded yet.";
 
+// File selector state
+String[] availableFiles = { "flights2k.csv", "flights10k.csv", "flights100k.csv", "flights_full.csv" };
+String[] fileLabels = { "2,000 flights", "10,000 flights", "100,000 flights", "Full dataset" };
+int selectedFileIndex = 0;
+String currentFileName = "flights2k.csv";
+
+// Home screen animation
+float planeX = -80;
+float cloudOffset = 0;
+
 
 BarChart flightDateChart;
 ScatterPlot flightAirportScatter;
@@ -93,9 +103,9 @@ void setup() {
   textAlign(CENTER, CENTER);
   rectMode(CORNER);
 
-  startButton = new Button(width / 2 - 150, 320, 300, 60, "Start Exploring");
-  infoButton = new Button(width / 2 - 150, 410, 300, 60, "Group Info");
-  quitButton = new Button(width / 2 - 150, 500, 300, 60, "Exit");
+  startButton = new Button(540, 500, 300, 55, "Start Exploring");
+  infoButton = new Button(540, 570, 300, 55, "Group Info");
+  quitButton = new Button(540, 640, 300, 55, "Exit");
   backButton = new Button(40, 40, 170, 50, "Back to Home");
   graphButton = new Button(990, 40, 170, 50, "See Graphs");
   scatterButton = new Button(990, 40, 170, 50, "See Scatter Plot");
@@ -383,6 +393,22 @@ void mousePressed() {
       currentScreen = 2;
     } else if (quitButton.isMouseOver()) {
       exit();
+    } else {
+      // file selector card clicks
+      float panelX = 40;
+      float panelY = 155;
+      float panelW = 280;
+      float cardStartY = panelY + 72;
+      for (int i = 0; i < availableFiles.length; i++) {
+        float cardY = cardStartY + i * 68;
+        if (mouseX >= panelX + 16 && mouseX <= panelX + panelW - 16 &&
+            mouseY >= cardY && mouseY <= cardY + 56) {
+          if (i != selectedFileIndex) {
+            reloadDataWithFile(i);
+          }
+          break;
+        }
+      }
     }
   } else if (currentScreen == 1) {
       if (airportPrevButton.isMouseOver()) {
@@ -498,36 +524,405 @@ boolean isMouseOverText(float centerX, float centerY, float boxW, float boxH) {
 // Shows the project title, short description, and the three main buttons:
 // Start Exploring, Group Info, Exit.
 void drawHomeScreen() {
-  
 
-  fill(30, 60, 100);
+  // --- animated background ---
+  background(20, 32, 58);
+
+  // subtle gradient overlay
   noStroke();
-  rect(0, 0, width, 120);
+  for (int i = 0; i < height; i++) {
+    float t = map(i, 0, height, 0, 1);
+    fill(lerpColor(color(20, 32, 58), color(35, 60, 100), t), 255);
+    rect(0, i, width, 1);
+  }
+
+  // animated radar circles (bottom-right)
+  drawRadarPulse(width - 160, height - 140);
+
+  // animated dashed flight routes
+  drawFlightRoutes();
+
+  // floating clouds
+  cloudOffset += 0.15;
+  drawCloud(100 + (cloudOffset * 0.5) % (width + 200) - 100, 130, 0.7);
+  drawCloud(500 + (cloudOffset * 0.3) % (width + 200) - 100, 85, 0.5);
+  drawCloud(850 + (cloudOffset * 0.4) % (width + 200) - 100, 180, 0.6);
+
+  // animated airplane across the top
+  planeX += 1.2;
+  if (planeX > width + 100) planeX = -100;
+  drawAirplaneIcon(planeX, 60, 1.0);
+
+  // small airplane along a route
+  float smallPlaneT = (frameCount % 300) / 300.0;
+  float spX = lerp(80, width - 80, smallPlaneT);
+  float spY = lerp(height - 100, height - 200, sin(smallPlaneT * PI));
+  drawAirplaneIcon(spX, spY, 0.45);
+
+  // --- header banner ---
+  noStroke();
+  fill(15, 28, 52, 200);
+  rect(0, 0, width, 120, 0, 0, 0, 0);
+
+  // header glow line
+  for (int i = 0; i < 4; i++) {
+    fill(80, 170, 255, 60 - i * 15);
+    rect(0, 120 - i, width, 1);
+  }
 
   fill(255);
   textAlign(CENTER, CENTER);
-  textSize(36);
-  text("Flight Data Visualisation", width / 2, 64);
+  textSize(34);
+  text("Flight Data Visualisation", width / 2, 50);
 
-  textSize(18);
-  text("CSU11013 Group Project", width / 2, 96);
+  fill(160, 200, 255);
+  textSize(15);
+  text("CSU11013 — Group 39 Project", width / 2, 86);
+
+  // === LEFT PANEL — file selector ===
+  float panelX = 40;
+  float panelY = 155;
+  float panelW = 280;
+  float panelH = 560;
+
+  // panel shadow
+  noStroke();
+  fill(0, 30);
+  rect(panelX + 4, panelY + 4, panelW, panelH, 16);
+
+  // panel background
+  fill(255, 245);
+  stroke(180, 210, 240);
+  strokeWeight(1.5);
+  rect(panelX, panelY, panelW, panelH, 16);
+
+  // panel header
+  noStroke();
+  fill(30, 55, 95);
+  rect(panelX, panelY, panelW, 52, 16, 16, 0, 0);
 
   fill(255);
-  stroke(180);
-  strokeWeight(2);
-  rect(width / 2 - 350, 180, 700, 450, 20);
+  textSize(17);
+  textAlign(CENTER, CENTER);
+  text("Select Dataset", panelX + panelW / 2, panelY + 26);
 
-  fill(40);
-  textSize(28);
-  text("Welcome", width / 2, 230);
+  // file icon
+  drawFileIcon(panelX + 24, panelY + 15, 0.55);
 
-  textSize(16);
-  text("Use this application to explore and visualise flight data.", width / 2, 270);
-  text("Choose an option below to begin.", width / 2, 300);
+  // file cards
+  float cardStartY = panelY + 72;
+  for (int i = 0; i < availableFiles.length; i++) {
+    float cardY = cardStartY + i * 68;
+    boolean isSelected = (i == selectedFileIndex);
+    boolean isHovered = mouseX >= panelX + 16 && mouseX <= panelX + panelW - 16 &&
+                        mouseY >= cardY && mouseY <= cardY + 56;
+
+    // card shadow
+    if (isSelected) {
+      noStroke();
+      fill(50, 100, 180, 25);
+      rect(panelX + 18, cardY + 3, panelW - 34, 56, 12);
+    }
+
+    // card background
+    if (isSelected) {
+      fill(220, 235, 255);
+      stroke(60, 120, 200);
+      strokeWeight(2);
+    } else if (isHovered) {
+      fill(240, 246, 255);
+      stroke(150, 180, 220);
+      strokeWeight(1.5);
+    } else {
+      fill(248, 250, 255);
+      stroke(210, 220, 235);
+      strokeWeight(1);
+    }
+    rect(panelX + 16, cardY, panelW - 32, 56, 12);
+
+    // radio circle
+    float radioX = panelX + 38;
+    float radioY = cardY + 28;
+    noFill();
+    stroke(isSelected ? color(50, 100, 180) : color(170));
+    strokeWeight(2);
+    ellipse(radioX, radioY, 16, 16);
+    if (isSelected) {
+      noStroke();
+      fill(50, 100, 180);
+      ellipse(radioX, radioY, 9, 9);
+    }
+
+    // file name
+    textAlign(LEFT, CENTER);
+    fill(isSelected ? color(30, 60, 110) : color(50));
+    textSize(14);
+    text(availableFiles[i], panelX + 54, cardY + 18);
+
+    // file description
+    fill(isSelected ? color(50, 90, 150) : color(120));
+    textSize(11);
+    text(fileLabels[i], panelX + 54, cardY + 38);
+  }
+
+  // current status
+  float statusY = cardStartY + availableFiles.length * 68 + 12;
+  noStroke();
+  fill(235, 245, 255);
+  rect(panelX + 16, statusY, panelW - 32, 52, 10);
+
+  fill(50, 90, 140);
+  textAlign(CENTER, CENTER);
+  textSize(12);
+  text("Currently loaded:", panelX + panelW / 2, statusY + 16);
+  fill(30, 65, 120);
+  textSize(14);
+  text(currentFileName, panelX + panelW / 2, statusY + 36);
+
+  // flight stats mini display
+  float statsY = statusY + 68;
+  fill(80, 120, 170);
+  textSize(12);
+  textAlign(CENTER, CENTER);
+  text(flights.size() + " flights loaded", panelX + panelW / 2, statsY);
+
+  if (dataLoaded) {
+    fill(40, 160, 90);
+    ellipse(panelX + panelW / 2 - 58, statsY, 8, 8);
+  }
+
+  // === RIGHT PANEL — welcome + buttons ===
+  float rightX = 360;
+  float rightY = 155;
+  float rightW = 800;
+  float rightH = 560;
+
+  // panel shadow
+  noStroke();
+  fill(0, 25);
+  rect(rightX + 4, rightY + 4, rightW, rightH, 16);
+
+  // panel background
+  fill(255, 240);
+  stroke(180, 210, 240);
+  strokeWeight(1.5);
+  rect(rightX, rightY, rightW, rightH, 16);
+
+  // decorative header stripe
+  noStroke();
+  fill(30, 55, 95, 15);
+  rect(rightX, rightY, rightW, 80, 16, 16, 0, 0);
+
+  // globe icon area
+  drawGlobeIcon(rightX + rightW / 2, rightY + 115, 38);
+
+  // welcome text
+  fill(30, 50, 85);
+  textAlign(CENTER, CENTER);
+  textSize(30);
+  text("Welcome", rightX + rightW / 2, rightY + 180);
+
+  fill(80, 100, 130);
+  textSize(15);
+  text("Explore and visualise US domestic flight data.", rightX + rightW / 2, rightY + 220);
+  text("Filter by airport, date range, and view interactive charts.", rightX + rightW / 2, rightY + 244);
+
+  // decorative separator line
+  stroke(180, 210, 240);
+  strokeWeight(1);
+  line(rightX + 120, rightY + 275, rightX + rightW - 120, rightY + 275);
+
+  // draw small airplane on separator
+  noStroke();
+  fill(80, 170, 255);
+  ellipse(rightX + rightW / 2, rightY + 275, 8, 8);
+
+  // buttons (repositioned to right panel)
+  float btnX = rightX + rightW / 2 - 150;
+  startButton.x = btnX;
+  startButton.y = rightY + 305;
+  infoButton.x = btnX;
+  infoButton.y = rightY + 385;
+  quitButton.x = btnX;
+  quitButton.y = rightY + 465;
 
   startButton.display();
   infoButton.display();
   quitButton.display();
+
+  // bottom info
+  fill(140, 165, 200);
+  textSize(11);
+  textAlign(CENTER, CENTER);
+  text("Select a dataset on the left, then press Start Exploring", rightX + rightW / 2, rightY + rightH - 22);
+}
+
+// --- Home screen decorative drawing functions ---
+
+void drawAirplaneIcon(float cx, float cy, float s) {
+  pushMatrix();
+  translate(cx, cy);
+  scale(s);
+  noStroke();
+
+  // fuselage
+  fill(200, 220, 255, 190);
+  beginShape();
+  vertex(34, 0);
+  vertex(20, -3);
+  vertex(-8, -4);
+  vertex(-30, -3);
+  vertex(-34, 0);
+  vertex(-30, 3);
+  vertex(-8, 4);
+  vertex(20, 3);
+  endShape(CLOSE);
+
+  // main wings — wide swept-back shape
+  fill(170, 200, 245, 175);
+  beginShape();
+  vertex(8, -4);
+  vertex(2, -6);
+  vertex(-12, -24);
+  vertex(-6, -24);
+  vertex(0, -18);
+  vertex(4, -10);
+  vertex(12, -3);
+  endShape(CLOSE);
+  beginShape();
+  vertex(8, 4);
+  vertex(2, 6);
+  vertex(-12, 24);
+  vertex(-6, 24);
+  vertex(0, 18);
+  vertex(4, 10);
+  vertex(12, 3);
+  endShape(CLOSE);
+
+  // tail fins
+  fill(145, 180, 230, 155);
+  beginShape();
+  vertex(-26, -2);
+  vertex(-30, -12);
+  vertex(-24, -12);
+  vertex(-22, -3);
+  endShape(CLOSE);
+  beginShape();
+  vertex(-26, 2);
+  vertex(-30, 12);
+  vertex(-24, 12);
+  vertex(-22, 3);
+  endShape(CLOSE);
+
+  // cockpit highlight
+  fill(230, 240, 255, 120);
+  ellipse(26, 0, 8, 4);
+
+  popMatrix();
+}
+
+void drawCloud(float cx, float cy, float s) {
+  pushMatrix();
+  translate(cx, cy);
+  scale(s);
+  noStroke();
+  fill(255, 30);
+  ellipse(0, 0, 80, 40);
+  ellipse(-25, -8, 50, 30);
+  ellipse(25, -5, 60, 35);
+  ellipse(10, 5, 50, 25);
+  popMatrix();
+}
+
+void drawRadarPulse(float cx, float cy) {
+  noFill();
+  for (int ring = 0; ring < 4; ring++) {
+    float radius = 30 + ring * 35 + ((frameCount + ring * 20) % 80);
+    float alpha = map((frameCount + ring * 20) % 80, 0, 80, 50, 0);
+    stroke(80, 170, 255, alpha);
+    strokeWeight(1.2);
+    ellipse(cx, cy, radius * 2, radius * 2);
+  }
+
+  // center dot
+  noStroke();
+  fill(80, 170, 255, 100);
+  ellipse(cx, cy, 8, 8);
+}
+
+void drawFlightRoutes() {
+  // draw several curved dashed routes
+  stroke(80, 140, 220, 30);
+  strokeWeight(1.2);
+  noFill();
+  drawDashedArc(150, height - 60, width - 200, 200, 20);
+  drawDashedArc(250, height - 40, width - 350, 250, 16);
+}
+
+void drawDashedArc(float x1, float y1, float x2, float y2, int segments) {
+  float midX = (x1 + x2) / 2;
+  float midY = min(y1, y2) - abs(x2 - x1) * 0.15;
+
+  for (int i = 0; i < segments; i += 2) {
+    float t0 = (float) i / segments;
+    float t1 = (float) (i + 1) / segments;
+
+    float ax = bezierPoint(x1, midX - 50, midX + 50, x2, t0);
+    float ay = bezierPoint(y1, midY, midY, y2, t0);
+    float bx = bezierPoint(x1, midX - 50, midX + 50, x2, t1);
+    float by = bezierPoint(y1, midY, midY, y2, t1);
+
+    line(ax, ay, bx, by);
+  }
+}
+
+void drawGlobeIcon(float cx, float cy, float r) {
+  pushStyle();
+  noFill();
+  stroke(80, 140, 220, 60);
+  strokeWeight(1.5);
+  ellipse(cx, cy, r * 2, r * 2);
+
+  // longitude lines
+  ellipse(cx, cy, r, r * 2);
+  ellipse(cx, cy, r * 1.5, r * 2);
+
+  // latitude lines
+  line(cx - r, cy, cx + r, cy);
+  line(cx - r * 0.85, cy - r * 0.5, cx + r * 0.85, cy - r * 0.5);
+  line(cx - r * 0.85, cy + r * 0.5, cx + r * 0.85, cy + r * 0.5);
+  popStyle();
+}
+
+void drawFileIcon(float x, float y, float s) {
+  pushMatrix();
+  translate(x, y);
+  scale(s);
+  noStroke();
+  fill(255, 180);
+  rect(0, 0, 28, 36, 3);
+  fill(200, 220, 255);
+  rect(4, 10, 20, 2);
+  rect(4, 16, 16, 2);
+  rect(4, 22, 18, 2);
+
+  // fold corner
+  fill(160, 190, 230);
+  beginShape();
+  vertex(18, 0);
+  vertex(28, 10);
+  vertex(18, 10);
+  endShape(CLOSE);
+  popMatrix();
+}
+
+void reloadDataWithFile(int fileIndex) {
+  selectedFileIndex = fileIndex;
+  currentFileName = availableFiles[fileIndex];
+  loadFlightData(currentFileName);
+  initialiseFilterState();
+  buildFlightDateChart();
+  buildFlightScatterPlot();
 }
 
 // buildFlightDateChart()

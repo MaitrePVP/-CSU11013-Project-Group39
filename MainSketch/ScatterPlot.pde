@@ -1,3 +1,7 @@
+// ScatterPlot class
+// Handles the full scatterplot visualisation:
+// plotting the points, scaling the axes, showing the legend,
+// filtering by carrier, drawing the average delay line, and tooltips.
 class ScatterPlot {
   float[] valuesX, valuesY, sizes;
   String[] carriers, uniqueCarriers;
@@ -13,6 +17,9 @@ class ScatterPlot {
   float maxPointSize = 30;
   float plotMargin = 4;
 
+  // Constructor
+  // Stores the scatterplot position, size, and incoming data arrays,
+  // then builds the unique carrier list used by the legend filters.
   ScatterPlot(int x, int y, int width, int height,
               float[] valuesX, float[] valuesY, float[] sizes, String[] carriers) {
     this.x = x;
@@ -30,6 +37,9 @@ class ScatterPlot {
     for (int i = 0; i < carrierVisible.length; i++) carrierVisible[i] = false;
   }
 
+  // Main draw function for the scatterplot.
+  // It prepares the data ranges, draws the chart structure,
+  // then draws only the selected carriers, the average line, and any tooltip.
   void drawScatterPlot() {
     textFont(chartFont);
     drawTitle();
@@ -56,6 +66,8 @@ class ScatterPlot {
     if (hovered != -1) drawTooltip(hovered, minX, maxX, minY, maxY, minSize, maxSize);
   }
 
+  // Calculates the min and max ranges for x, y, and point size.
+  // Also makes sure the chart has a safe range even when values are identical.
   float[] getRanges() {
     float minX = min(valuesX), maxX = max(valuesX);
     float minY = min(valuesY), maxY = max(valuesY);
@@ -71,6 +83,7 @@ class ScatterPlot {
     return new float[] {minX, maxX, minY, maxY, minSize, maxSize};
   }
 
+  // Shows a centred message when there is no data or no carrier selected.
   void drawEmptyMessage(String msg) {
     fill(120);
     textAlign(CENTER, CENTER);
@@ -78,6 +91,8 @@ class ScatterPlot {
     text(msg, x + width / 2.0, y - height / 2.0);
   }
 
+  // Draws the two axes, the zero delay reference line,
+  // and the axis titles.
   void drawAxes(float minY, float maxY) {
     stroke(0);
     strokeWeight(2);
@@ -106,6 +121,8 @@ class ScatterPlot {
     popMatrix();
   }
 
+  // Draws the background grid and the axis labels.
+  // The x labels are formatted as day plus time, while the y labels show delay values.
   void drawGridLines(float minX, float maxX, float minY, float maxY) {
     int steps = 5;
     stroke(225);
@@ -127,6 +144,9 @@ class ScatterPlot {
     }
   }
 
+  // Draws every visible flight as a point.
+  // X position = date + time, Y position = delay, size = distance, colour = carrier.
+  // It also detects whether the mouse is hovering a point.
   int drawPoints(float minX, float maxX, float minY, float maxY, float minSize, float maxSize) {
     int hovered = -1;
 
@@ -149,6 +169,8 @@ class ScatterPlot {
     return hovered;
   }
 
+  // Draws the average delay line for the currently visible carriers.
+  // This updates dynamically whenever the carrier selection changes.
   void drawAverageLine(float minY, float maxY) {
     float avg = getVisibleAverageDelay();
     if (Float.isNaN(avg)) return;
@@ -177,6 +199,8 @@ class ScatterPlot {
     text(label, labelX, avgY);
   }
 
+  // Draws the carrier legend on the right.
+  // Each coloured box acts like a filter toggle for one airline carrier.
   void drawLegend() {
     float lx = x + width + 34;
     float ly = y - height + 34;
@@ -202,6 +226,8 @@ class ScatterPlot {
     }
   }
 
+  // Draws the hover tooltip for one flight point.
+  // It shows the carrier, the flight time, the delay, and the distance.
   void drawTooltip(int i, float minX, float maxX, float minY, float maxY, float minSize, float maxSize) {
     float d = mapSize(sizes[i], minSize, maxSize);
     float px = getPlotX(valuesX[i], minX, maxX, d);
@@ -229,11 +255,13 @@ class ScatterPlot {
     text("Distance: " + nf(sizes[i], 0, 0), boxX + 12, boxY + 64);
   }
 
+  // Checks whether at least one carrier is currently enabled in the legend.
   boolean hasVisibleCarrier() {
     for (boolean v : carrierVisible) if (v) return true;
     return false;
   }
 
+  // Calculates the average delay using only flights from visible carriers.
   float getVisibleAverageDelay() {
     float total = 0;
     int count = 0;
@@ -247,10 +275,13 @@ class ScatterPlot {
     return count == 0 ? Float.NaN : total / count;
   }
 
+  // Maps flight distance to a point diameter between the minimum and maximum size.
   float mapSize(float v, float minV, float maxV) {
     return minV == maxV ? (minPointSize + maxPointSize) / 2.0 : map(v, minV, maxV, minPointSize, maxPointSize);
   }
 
+  // Generates a repeatable colour for each carrier index.
+  // This keeps the legend and points visually consistent.
   int getCarrierColor(int i) {
     colorMode(HSB, 255);
     int c = color((i * 57) % 255, 170, 210);
@@ -258,16 +289,21 @@ class ScatterPlot {
     return c;
   }
 
+  // Converts an x data value into a screen position.
+  // A margin based on point size is used so circles do not clip at the edges.
   float getPlotX(float v, float minX, float maxX, float size) {
     float m = size / 2.0 + plotMargin;
     return map(v, minX, maxX, x + m, x + width - m);
   }
 
+  // Converts a y data value into a screen position.
+  // A margin based on point size is used so circles stay inside the chart.
   float getPlotY(float v, float minY, float maxY, float size) {
     float m = size / 2.0 + plotMargin;
     return map(v, minY, maxY, y - m, y - height + m);
   }
 
+  // Converts the stored decimal x value into a readable day + HH:MM label.
   String formatXLabel(float value) {
     int day = floor(value);
     int mins = round((value - day) * 1440.0);
@@ -278,21 +314,27 @@ class ScatterPlot {
     return day + " " + nf(mins / 60, 2) + ":" + nf(mins % 60, 2);
   }
 
+  // Adds a plus sign to positive delay values to make early and late flights clearer.
   String formatSigned(float v) {
     return v > 0 ? "+" + nf(v, 0, 0) : nf(v, 0, 0);
   }
 
+  // Extracts the unique carrier names from the full carrier array.
+  // This is used to build the legend filter list.
   String[] getUnique(String[] arr) {
     ArrayList<String> out = new ArrayList<String>();
     for (String s : arr) if (s != null && !s.equals("") && !out.contains(s)) out.add(s);
     return out.toArray(new String[0]);
   }
 
+  // Finds the position of a carrier inside the unique carrier list.
   int indexOf(String[] arr, String value) {
     for (int i = 0; i < arr.length; i++) if (arr[i].equals(value)) return i;
     return -1;
   }
 
+  // Handles clicks on the carrier legend.
+  // Clicking a box turns that carrier on or off in the scatterplot.
   void handleClick(int mx, int my) {
     float lx = x + width + 34;
     float ly = y - height + 58;
@@ -308,15 +350,18 @@ class ScatterPlot {
     }
   }
 
+  // Lets the main sketch set custom axis titles for reuse.
   void setAxisTitles(String xTitle, String yTitle) {
     xAxisTitle = xTitle;
     yAxisTitle = yTitle;
   }
 
+  // Lets the main sketch set the chart title from outside the class.
   void setChartTitle(String title) {
     chartTitle = title;
   }
 
+  // Draws the scatterplot title above the chart area.
   void drawTitle() {
     fill(0);
     textSize(22);

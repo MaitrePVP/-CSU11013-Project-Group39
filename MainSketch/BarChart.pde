@@ -1,3 +1,7 @@
+// BarChart class
+// Handles everything related to the bar chart screen:
+// storing the values, drawing the chart, showing the legend,
+// updating visible dates, drawing the average line, and hover tooltips.
 class BarChart {
   int[] values;
   String[] labels;
@@ -10,6 +14,10 @@ class BarChart {
   String xAxisTitle = "X Axis", yAxisTitle = "Y Axis", chartTitle = "Bar Chart Title";
   PFont chartFont;
 
+  // Constructor
+  // Sets the chart position and size, reads the incoming data,
+  // converts the CSV values into integers, and creates the visibility array
+  // used to decide which dates are currently shown.
   BarChart(int x, int y, int width, int height, String[] csvData, String[] labels) {
     this.x = x;
     this.y = y;
@@ -39,6 +47,9 @@ class BarChart {
     updateMaxValue();
   }
 
+  // Main draw function for the bar chart.
+  // It draws the chart structure first, then only the selected bars,
+  // then the average line, and finally the tooltip if the mouse is hovering a bar.
   void drawBarChart() {
     textFont(chartFont);
 
@@ -103,6 +114,7 @@ class BarChart {
     if (hoveredIndex != -1) drawTooltip(hoveredIndex, barWidth, usableHeight);
   }
 
+  // Draws the x and y axes and places the axis titles.
   void drawAxes() {
     int cw = width - getLegendAreaWidth() - 20;
     stroke(0);
@@ -123,6 +135,8 @@ class BarChart {
     popMatrix();
   }
 
+  // Draws horizontal grid lines and the y axis scale values.
+  // This makes it easier to compare bar heights visually.
   void drawGridLines() {
     int steps = 5, cw = width - getLegendAreaWidth() - 20;
     float usableHeight = height - topPadding;
@@ -140,6 +154,7 @@ class BarChart {
     }
   }
 
+  // Draws the chart title above the plotting area.
   void drawTitle() {
     fill(0);
     textSize(22);
@@ -147,6 +162,8 @@ class BarChart {
     text(chartTitle, x + (width - getLegendAreaWidth()) / 2, y - height - 20);
   }
 
+  // Draws the date legend on the right side.
+  // Each checkbox controls whether a specific date is visible in the chart.
   void drawLegend() {
     int lx = x + width - getLegendAreaWidth() + legendPadding;
     int ly = y - height + 20;
@@ -191,6 +208,8 @@ class BarChart {
     }
   }
 
+  // Draws a dynamic average line based only on the currently visible bars.
+  // This updates whenever the user changes the date selection.
   void drawAverageLine() {
     int count = getVisibleCount();
     if (count == 0) return;
@@ -209,6 +228,8 @@ class BarChart {
     text("Average: " + nf(avg, 0, 1), x - 95, avgY);
   }
 
+  // Handles clicks on the legend checkboxes.
+  // When a date is clicked, it is toggled on or off and the chart rescales.
   void handleClick(int mx, int my) {
     int lx = x + width - getLegendAreaWidth() + legendPadding;
     int ly = y - height + 44;
@@ -229,6 +250,9 @@ class BarChart {
     }
   }
 
+  // Draws the hover tooltip for one bar.
+  // Shows the date label, raw value, percentage of the current maximum,
+  // and difference from the visible average.
   void drawTooltip(int index, int barWidth, float usableHeight) {
     int drawIndex = getVisiblePosition(index);
     if (drawIndex == -1) return;
@@ -268,20 +292,26 @@ class BarChart {
   }
 
 
+  // Calculates how many legend columns are needed based on the number of dates.
   int getLegendColumns() {
     return max(1, (values.length + legendRowsPerColumn - 1) / legendRowsPerColumn);
   }
 
+  // Calculates how much horizontal space the legend needs.
+  // The remaining width is used by the actual chart area.
   int getLegendAreaWidth() {
     return legendPadding * 2 + getLegendColumns() * legendColumnWidth + (getLegendColumns() - 1) * legendColumnGap;
   }
 
+  // Counts how many bars are currently turned on in the legend.
   int getVisibleCount() {
     int c = 0;
     for (boolean v : visible) if (v) c++;
     return c;
   }
 
+  // Converts an original data index into its visible draw position.
+  // This is needed because hidden dates are skipped when bars are laid out.
   int getVisiblePosition(int index) {
     int pos = 0;
     for (int i = 0; i < visible.length; i++) {
@@ -293,11 +323,15 @@ class BarChart {
     return -1;
   }
 
+  // Recalculates the current maximum value using only visible bars.
+  // This keeps the chart scale responsive to the selected dates.
   void updateMaxValue() {
     maxValue = 1;
     for (int i = 0; i < values.length; i++) if (visible[i]) maxValue = max(maxValue, values[i]);
   }
 
+  // Returns the average across all stored values.
+  // Useful as a general helper, even if the visible average is used more often.
   float getAverage() {
     if (values.length == 0) return 0;
     int sum = 0;
@@ -305,6 +339,8 @@ class BarChart {
     return (float) sum / values.length;
   }
 
+  // Returns the average of only the visible bars.
+  // This is the value used for the dynamic average line and tooltip comparison.
   float getAverageOfVisible() {
     int sum = 0, count = 0;
     for (int i = 0; i < values.length; i++) if (visible[i]) {
@@ -314,11 +350,13 @@ class BarChart {
     return count == 0 ? 0 : (float) sum / count;
   }
 
+  // Lets the main sketch set custom axis titles for reuse.
   void setAxisTitles(String xTitle, String yTitle) {
     xAxisTitle = xTitle;
     yAxisTitle = yTitle;
   }
 
+  // Lets the main sketch set the chart title from outside the class.
   void setChartTitle(String title) {
     chartTitle = title;
   }

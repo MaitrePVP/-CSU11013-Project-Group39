@@ -119,11 +119,7 @@ ScatterPlotData getScatterPlotData(ArrayList<Flight> sourceFlights) {
     return new ScatterPlotData(new float[0], new float[0], new float[0], new String[0]);
   }
 
-  String[] keys = getDateKeysFromFlights(sourceFlights);
-  HashMap<String, Integer> dayOrder = new HashMap<String, Integer>();
-  for (int i = 0; i < keys.length; i++) {
-    dayOrder.put(keys[i], i + 1);
-  }
+  HashMap<String, Integer> dayOrder = buildScatterDayOrder(sourceFlights);
 
   int count = sourceFlights.size();
   float[] valuesX = new float[count];
@@ -133,17 +129,51 @@ ScatterPlotData getScatterPlotData(ArrayList<Flight> sourceFlights) {
 
   for (int i = 0; i < count; i++) {
     Flight f = sourceFlights.get(i);
-    String key = f.getDateKey();
-    int dayIndex = dayOrder.containsKey(key) ? dayOrder.get(key) : i + 1;
-    int minutes = hhmmToMinutes(f.crsDepTime);
-
-    valuesX[i] = dayIndex + minutes / 1440.0;
+    valuesX[i] = getScatterPlotXValue(f, dayOrder);
     valuesY[i] = f.getDepartureDelay();
     sizes[i] = max(1, f.distance);
     carriers[i] = trim(f.airlineCode.equals("") ? "Unknown" : f.airlineCode);
   }
 
   return new ScatterPlotData(valuesX, valuesY, sizes, carriers);
+}
+
+HashMap<String, Integer> buildScatterDayOrder(ArrayList<Flight> sourceFlights) {
+  String[] keys = getDateKeysFromFlights(sourceFlights);
+  HashMap<String, Integer> dayOrder = new HashMap<String, Integer>();
+  for (int i = 0; i < keys.length; i++) {
+    dayOrder.put(keys[i], i + 1);
+  }
+  return dayOrder;
+}
+
+float getScatterPlotXValue(Flight flight, HashMap<String, Integer> dayOrder) {
+  if (flight == null) return 0;
+
+  String key = flight.getDateKey();
+  int dayIndex = (dayOrder != null && dayOrder.containsKey(key)) ? dayOrder.get(key) : 1;
+  int minutes = hhmmToMinutes(flight.crsDepTime);
+  return dayIndex + minutes / 1440.0;
+}
+
+float[] getScatterSliderValues(ArrayList<Flight> sourceFlights) {
+  if (sourceFlights == null || sourceFlights.size() == 0) {
+    return new float[0];
+  }
+
+  HashMap<String, Integer> dayOrder = buildScatterDayOrder(sourceFlights);
+  java.util.TreeSet<Float> uniqueValues = new java.util.TreeSet<Float>();
+
+  for (Flight flight : sourceFlights) {
+    uniqueValues.add(getScatterPlotXValue(flight, dayOrder));
+  }
+
+  float[] values = new float[uniqueValues.size()];
+  int index = 0;
+  for (Float value : uniqueValues) {
+    values[index++] = value.floatValue();
+  }
+  return values;
 }
 
 String[] getDateKeysFromFlights(ArrayList<Flight> sourceFlights) {
@@ -240,6 +270,24 @@ ArrayList<Flight> getFlightsInDateRange(ArrayList<Flight> sourceFlights, String 
 
   for (Flight flight : sourceFlights) {
     if (isFlightDateInRange(flight.getDateKey(), normalizedStart, normalizedEnd)) {
+      matchingFlights.add(flight);
+    }
+  }
+
+  return matchingFlights;
+}
+
+ArrayList<Flight> getFlightsInScatterRange(ArrayList<Flight> sourceFlights, float startX, float endX) {
+  ArrayList<Flight> matchingFlights = new ArrayList<Flight>();
+  if (sourceFlights == null) return matchingFlights;
+
+  HashMap<String, Integer> dayOrder = buildScatterDayOrder(sourceFlights);
+  float minX = min(startX, endX);
+  float maxX = max(startX, endX);
+
+  for (Flight flight : sourceFlights) {
+    float scatterX = getScatterPlotXValue(flight, dayOrder);
+    if (scatterX >= minX && scatterX <= maxX) {
       matchingFlights.add(flight);
     }
   }

@@ -44,7 +44,7 @@ class RangeSlider {
     return endIndex;
   }
 
-  void draw(String[] dateLabels) {
+  void draw(String title, String rangeLabel, String startLabel, String endLabel, boolean enabled) {
     pushStyle();
     fill(255);
     stroke(210);
@@ -54,12 +54,12 @@ class RangeSlider {
     fill(40);
     textAlign(LEFT, TOP);
     textSize(15);
-    text("Scatter date range", x + 16, y + 10);
+    text(title, x + 16, y + 10);
 
-    if (dateLabels == null || dateLabels.length == 0) {
+    if (!enabled) {
       fill(120);
       textSize(13);
-      text("No dates available", x + 16, y + 40);
+      text("No range available", x + 16, y + 40);
       popStyle();
       return;
     }
@@ -67,7 +67,7 @@ class RangeSlider {
     fill(70);
     textAlign(RIGHT, TOP);
     textSize(13);
-    text(getRangeLabel(dateLabels), x + width - 16, y + 11);
+    text(rangeLabel, x + width - 16, y + 11);
 
     float trackStart = getTrackStart();
     float trackEnd = getTrackEnd();
@@ -88,9 +88,9 @@ class RangeSlider {
     fill(90);
     textSize(12);
     textAlign(LEFT, TOP);
-    text(formatDateForUi(dateLabels[startIndex]), trackStart, y + height - 18);
+    text(startLabel, trackStart, y + height - 18);
     textAlign(RIGHT, TOP);
-    text(formatDateForUi(dateLabels[endIndex]), trackEnd, y + height - 18);
+    text(endLabel, trackEnd, y + height - 18);
     popStyle();
   }
 
@@ -184,12 +184,5 @@ class RangeSlider {
 
     float constrainedX = constrain(mx, getTrackStart(), getTrackEnd());
     return round(map(constrainedX, getTrackStart(), getTrackEnd(), minIndex, maxIndex));
-  }
-
-  String getRangeLabel(String[] dateLabels) {
-    String startLabel = formatDateForUi(dateLabels[startIndex]);
-    String endLabel = formatDateForUi(dateLabels[endIndex]);
-    if (startLabel.equals(endLabel)) return startLabel;
-    return startLabel + " - " + endLabel;
   }
 }

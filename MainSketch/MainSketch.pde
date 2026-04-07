@@ -539,9 +539,6 @@ void drawHomeScreen() {
   // animated radar circles (bottom-right)
   drawRadarPulse(width - 160, height - 140);
 
-  // animated dashed flight routes
-  drawFlightRoutes();
-
   // floating clouds
   cloudOffset += 0.15;
   drawCloud(100 + (cloudOffset * 0.5) % (width + 200) - 100, 130, 0.7);
@@ -552,12 +549,6 @@ void drawHomeScreen() {
   planeX += 1.2;
   if (planeX > width + 100) planeX = -100;
   drawAirplaneIcon(planeX, 60, 1.0);
-
-  // small airplane along a route
-  float smallPlaneT = (frameCount % 300) / 300.0;
-  float spX = lerp(80, width - 80, smallPlaneT);
-  float spY = lerp(height - 100, height - 200, sin(smallPlaneT * PI));
-  drawAirplaneIcon(spX, spY, 0.45);
 
   // --- header banner ---
   noStroke();

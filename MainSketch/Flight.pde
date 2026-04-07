@@ -223,18 +223,37 @@ void filterFlights(String airport, String startKey, String endKey) {
     boolean matchesAirport = airport.equals("ALL") || airport.equals("") ||
                              flight.origin.equals(airport) || flight.dest.equals(airport);
 
-    boolean matchesDate = true;
-    String flightDateKey = flight.getDateKey();
-
-    if (!normalizedStart.equals("") && !normalizedEnd.equals("") && !flightDateKey.equals("")) {
-      matchesDate = flightDateKey.compareTo(normalizedStart) >= 0 &&
-                    flightDateKey.compareTo(normalizedEnd) <= 0;
-    }
+    boolean matchesDate = isFlightDateInRange(flight.getDateKey(), normalizedStart, normalizedEnd);
 
     if (matchesAirport && matchesDate) {
       filteredFlights.add(flight);
     }
   }
+}
+
+ArrayList<Flight> getFlightsInDateRange(ArrayList<Flight> sourceFlights, String startKey, String endKey) {
+  ArrayList<Flight> matchingFlights = new ArrayList<Flight>();
+  if (sourceFlights == null) return matchingFlights;
+
+  String normalizedStart = normalizeDateKey(startKey);
+  String normalizedEnd = normalizeDateKey(endKey);
+
+  for (Flight flight : sourceFlights) {
+    if (isFlightDateInRange(flight.getDateKey(), normalizedStart, normalizedEnd)) {
+      matchingFlights.add(flight);
+    }
+  }
+
+  return matchingFlights;
+}
+
+boolean isFlightDateInRange(String flightDateKey, String normalizedStart, String normalizedEnd) {
+  if (normalizedStart.equals("") || normalizedEnd.equals("") || flightDateKey.equals("")) {
+    return true;
+  }
+
+  return flightDateKey.compareTo(normalizedStart) >= 0 &&
+         flightDateKey.compareTo(normalizedEnd) <= 0;
 }
 
 void sortFilteredFlightsByLateness() {

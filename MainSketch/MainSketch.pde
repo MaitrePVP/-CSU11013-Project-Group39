@@ -84,6 +84,7 @@ float cloudOffset = 0;
 
 BarChart flightDateChart;
 ScatterPlot flightAirportScatter;
+RangeSlider scatterDateSlider;
 
 // setup()
 // Initialises the whole sketch:
@@ -128,12 +129,12 @@ void setup() {
   endNextButton = new Button(303, 454, 42, 36, ">", 22);
   sortButton = new Button(110, 588, 220, 44, "Sort: File Order", 16);
   resetFiltersButton = new Button(110, 642, 220, 44, "Reset Filters", 16);
+  scatterDateSlider = new RangeSlider(120, 708, 760);
 
   initSnakeGame();
   loadFlightData("flights2k.csv");
   initialiseFilterState();
   buildFlightDateChart();
-  buildFlightScatterPlot();
 }
 
 // draw()
@@ -449,7 +450,9 @@ void mousePressed() {
       return;
     }
   } else if (currentScreen == 5) {
-    if (flightAirportScatter != null) {
+    if (scatterDateSlider != null && scatterDateSlider.handlePressed(mouseX, mouseY)) {
+      applyScatterDateSliderSelection();
+    } else if (flightAirportScatter != null) {
       flightAirportScatter.handleClick(mouseX, mouseY);
     }
   }
@@ -471,6 +474,18 @@ void mouseWheel(MouseEvent event) {
   int maxScroll = max(0, airportOptions.length - visibleCount);
   graphAirportDropdownScroll += int(event.getCount());
   graphAirportDropdownScroll = constrain(graphAirportDropdownScroll, 0, maxScroll);
+}
+
+void mouseDragged() {
+  if (currentScreen == 5 && scatterDateSlider != null && scatterDateSlider.handleDragged(mouseX)) {
+    applyScatterDateSliderSelection();
+  }
+}
+
+void mouseReleased() {
+  if (scatterDateSlider != null) {
+    scatterDateSlider.handleReleased();
+  }
 }
 
 // keyPressed()
@@ -922,7 +937,6 @@ void reloadDataWithFile(int fileIndex) {
   loadFlightData(currentFileName);
   initialiseFilterState();
   buildFlightDateChart();
-  buildFlightScatterPlot();
 }
 
 // buildFlightDateChart()
@@ -938,10 +952,12 @@ void buildFlightDateChart() {
 }
 
 void buildFlightScatterPlot() {
-  ScatterPlotData data = getScatterPlotData(flights);
+  String[] visibleCarriers = flightAirportScatter == null ? new String[0] : flightAirportScatter.getVisibleCarriers();
+  ScatterPlotData data = getScatterPlotData(getScatterPlotFlights());
   flightAirportScatter = new ScatterPlot(110, 660, 820, 480, data.valuesX, data.valuesY, data.sizes, data.carriers);
   flightAirportScatter.setChartTitle("Flight Delay by Time");
   flightAirportScatter.setAxisTitles("Date + Flight Time", "Delay (min)");
+  flightAirportScatter.setVisibleCarriers(visibleCarriers);
 }
 
 // drawGraphScreen()
@@ -1008,6 +1024,10 @@ void drawScatterScreen() {
     text("Scatter Plot could not be built (no data loaded).", width / 2, height / 2);
   }
 
+  if (scatterDateSlider != null) {
+    scatterDateSlider.draw(dateOptions);
+  }
+
   drawNavBar();
 }
 
@@ -1035,6 +1055,7 @@ void initialiseFilterState() {
 
   sortByLateness = false;
   applyActiveFilters();
+  buildFlightScatterPlot();
 }
 
 // applyActiveFilters()
@@ -1079,6 +1100,7 @@ void applyActiveFilters() {
   }
 
   sortButton.label = sortByLateness ? "Sort: Most Late" : "Sort: File Order";
+  syncScatterDateSlider();
 }
 
 // resetFilters()
@@ -1097,6 +1119,7 @@ void resetFilters() {
 
   sortByLateness = false;
   applyActiveFilters();
+  buildFlightScatterPlot();
 }
 
 // shiftAirportSelection(int direction)
@@ -1130,6 +1153,7 @@ void shiftStartDate(int direction) {
   }
 
   applyActiveFilters();
+  buildFlightScatterPlot();
 }
 
 // shiftEndDate(int direction)
@@ -1145,6 +1169,29 @@ void shiftEndDate(int direction) {
   }
 
   applyActiveFilters();
+  buildFlightScatterPlot();
+}
+
+void syncScatterDateSlider() {
+  if (scatterDateSlider == null) return;
+
+  int maxIndex = max(0, dateOptions.length - 1);
+  scatterDateSlider.setBounds(0, maxIndex);
+
+  if (dateOptions.length == 0) {
+    scatterDateSlider.setValues(0, 0);
+  } else {
+    scatterDateSlider.setValues(selectedStartDateIndex, selectedEndDateIndex);
+  }
+}
+
+void applyScatterDateSliderSelection() {
+  if (scatterDateSlider == null || dateOptions.length == 0) return;
+
+  selectedStartDateIndex = scatterDateSlider.getStartIndex();
+  selectedEndDateIndex = scatterDateSlider.getEndIndex();
+  applyActiveFilters();
+  buildFlightScatterPlot();
 }
 
 // drawSelectionCard(float x, float y, float w, float h, String label)
@@ -1301,6 +1348,10 @@ ArrayList<Flight> getGraphBarChartFlights() {
     }
   }
   return graphFlights;
+}
+
+ArrayList<Flight> getScatterPlotFlights() {
+  return getFlightsInDateRange(flights, startDate, endDate);
 }
 
 // drawAirportDropdown()

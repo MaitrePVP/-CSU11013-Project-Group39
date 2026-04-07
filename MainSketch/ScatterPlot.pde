@@ -361,6 +361,30 @@ class ScatterPlot {
     chartTitle = title;
   }
 
+  String[] getVisibleCarriers() {
+    ArrayList<String> visibleCarriers = new ArrayList<String>();
+    for (int i = 0; i < uniqueCarriers.length; i++) {
+      if (carrierVisible[i]) {
+        visibleCarriers.add(uniqueCarriers[i]);
+      }
+    }
+    return visibleCarriers.toArray(new String[0]);
+  }
+
+  void setVisibleCarriers(String[] carriersToShow) {
+    if (carriersToShow == null) return;
+
+    for (int i = 0; i < uniqueCarriers.length; i++) {
+      carrierVisible[i] = false;
+      for (int j = 0; j < carriersToShow.length; j++) {
+        if (uniqueCarriers[i].equals(carriersToShow[j])) {
+          carrierVisible[i] = true;
+          break;
+        }
+      }
+    }
+  }
+
   // Draws the scatterplot title above the chart area.
   void drawTitle() {
     fill(0);

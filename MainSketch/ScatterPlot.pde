@@ -6,6 +6,8 @@ class ScatterPlot {
   float[] valuesX, valuesY, sizes;
   String[] carriers, uniqueCarriers;
   boolean[] carrierVisible;
+  int[] carrierIndex;
+  int[] carrierColors;
 
   int x, y, width, height;
   String xAxisTitle = "X Axis";
@@ -16,6 +18,8 @@ class ScatterPlot {
   float minPointSize = 8;
   float maxPointSize = 30;
   float plotMargin = 4;
+
+  float minX, maxX, minY, maxY, minSize, maxSize;
 
   // Constructor
   // Stores the scatterplot position, size, and incoming data arrays,
@@ -35,6 +39,18 @@ class ScatterPlot {
     uniqueCarriers = getUnique(carriers);
     carrierVisible = new boolean[uniqueCarriers.length];
     for (int i = 0; i < carrierVisible.length; i++) carrierVisible[i] = false;
+
+    carrierIndex = new int[carriers.length];
+    for (int i = 0; i < carriers.length; i++) {
+      carrierIndex[i] = indexOf(uniqueCarriers, carriers[i]);
+    }
+
+    carrierColors = new int[uniqueCarriers.length];
+    for (int i = 0; i < uniqueCarriers.length; i++) {
+      carrierColors[i] = makeCarrierColor(i);
+    }
+
+    computeRanges();
   }
 
   // Main draw function for the scatterplot.
@@ -48,9 +64,6 @@ class ScatterPlot {
       drawEmptyMessage("No data available");
       return;
     }
-
-    float[] r = getRanges();
-    float minX = r[0], maxX = r[1], minY = r[2], maxY = r[3], minSize = r[4], maxSize = r[5];
 
     drawGridLines(minX, maxX, minY, maxY);
     drawAxes(minY, maxY);
@@ -68,10 +81,23 @@ class ScatterPlot {
 
   // Calculates the min and max ranges for x, y, and point size.
   // Also makes sure the chart has a safe range even when values are identical.
-  float[] getRanges() {
-    float minX = min(valuesX), maxX = max(valuesX);
-    float minY = min(valuesY), maxY = max(valuesY);
-    float minSize = max(1, min(sizes)), maxSize = max(sizes);
+  void computeRanges() {
+    if (valuesX == null || valuesX.length == 0) {
+      minX = 0;
+      maxX = 1;
+      minY = -1;
+      maxY = 1;
+      minSize = 1;
+      maxSize = 1;
+      return;
+    }
+
+    minX = min(valuesX);
+    maxX = max(valuesX);
+    minY = min(valuesY);
+    maxY = max(valuesY);
+    minSize = max(1, min(sizes));
+    maxSize = max(sizes);
 
     if (minX == maxX) maxX = minX + 1;
     if (minY > 0) minY = 0;
@@ -80,7 +106,6 @@ class ScatterPlot {
       minY--;
       maxY++;
     }
-    return new float[] {minX, maxX, minY, maxY, minSize, maxSize};
   }
 
   // Shows a centred message when there is no data or no carrier selected.
@@ -137,10 +162,13 @@ class ScatterPlot {
       line(xPos, y, xPos, y - height);
       line(x, yPos, x + width, yPos);
 
+      float xValue = map(i, 0, steps, minX, maxX);
+      float yValue = map(i, 0, steps, minY, maxY);
+
       textAlign(CENTER, TOP);
-      text(formatXLabel(map(i, 0, steps, minX, maxX)), xPos, y + 6);
+      text(formatXLabel(xValue), xPos, y + 6);
       textAlign(RIGHT, CENTER);
-      text(nf(map(i, 0, steps, minY, maxY), 0, 1), x - 8, yPos);
+      text(nf(yValue, 0, 1), x - 8, yPos);
     }
   }
 
@@ -151,17 +179,21 @@ class ScatterPlot {
     int hovered = -1;
 
     for (int i = 0; i < valuesX.length; i++) {
-      int c = indexOf(uniqueCarriers, carriers[i]);
+      int c = carrierIndex[i];
       if (c < 0 || !carrierVisible[c]) continue;
 
       float d = mapSize(sizes[i], minSize, maxSize);
       float px = getPlotX(valuesX[i], minX, maxX, d);
       float py = getPlotY(valuesY[i], minY, maxY, d);
-      boolean over = dist(mouseX, mouseY, px, py) <= d / 2.0;
+
+      float dx = mouseX - px;
+      float dy = mouseY - py;
+      float r = d / 2.0;
+      boolean over = dx * dx + dy * dy <= r * r;
 
       stroke(over ? color(40, 120) : color(255, 50));
       strokeWeight(over ? 2 : 1);
-      fill(getCarrierColor(c), 170);
+      fill(carrierColors[c], 170);
       ellipse(px, py, d, d);
 
       if (over) hovered = i;
@@ -216,7 +248,7 @@ class ScatterPlot {
       float iy = ly + 24 + i * row;
       stroke(90);
       strokeWeight(1);
-      fill(carrierVisible[i] ? getCarrierColor(i) : color(190));
+      fill(carrierVisible[i] ? carrierColors[i] : color(190));
       rect(lx, iy, box, box, 3);
 
       fill(carrierVisible[i] ? 0 : 140);
@@ -266,7 +298,7 @@ class ScatterPlot {
     float total = 0;
     int count = 0;
     for (int i = 0; i < valuesY.length; i++) {
-      int c = indexOf(uniqueCarriers, carriers[i]);
+      int c = carrierIndex[i];
       if (c >= 0 && carrierVisible[c]) {
         total += valuesY[i];
         count++;
@@ -282,7 +314,7 @@ class ScatterPlot {
 
   // Generates a repeatable colour for each carrier index.
   // This keeps the legend and points visually consistent.
-  int getCarrierColor(int i) {
+  int makeCarrierColor(int i) {
     colorMode(HSB, 255);
     int c = color((i * 57) % 255, 170, 210);
     colorMode(RGB, 255);

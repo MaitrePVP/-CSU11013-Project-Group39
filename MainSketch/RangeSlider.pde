@@ -147,11 +147,22 @@ class RangeSlider {
   }
 
   int getHandleAt(int mx, int my) {
-    if (dist(mx, my, getHandleX(startIndex), getTrackY()) <= handleRadius + 4) {
-      return 0;
-    }
-    if (dist(mx, my, getHandleX(endIndex), getTrackY()) <= handleRadius + 4) {
+    float startX = getHandleX(startIndex);
+    float endX = getHandleX(endIndex);
+    float trackY = getTrackY();
+    float hitRadius = handleRadius + 4;
+
+    boolean onStart = dist(mx, my, startX, trackY) <= hitRadius;
+    boolean onEnd = dist(mx, my, endX, trackY) <= hitRadius;
+
+    if (onStart && onEnd) {
       return 1;
+    }
+    if (onEnd) {
+      return 1;
+    }
+    if (onStart) {
+      return 0;
     }
     return -1;
   }
@@ -162,7 +173,7 @@ class RangeSlider {
   }
 
   int getNearestHandle(int mx) {
-    return abs(mx - getHandleX(startIndex)) <= abs(mx - getHandleX(endIndex)) ? 0 : 1;
+    return abs(mx - getHandleX(endIndex)) <= abs(mx - getHandleX(startIndex)) ? 1 : 0;
   }
 
   boolean updateFromMouse(int mx) {

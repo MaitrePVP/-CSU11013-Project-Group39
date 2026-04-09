@@ -1,23 +1,27 @@
+// basically each row from the CSV becomes one of these objects
+// every field maps to a column in the dataset
 class Flight {
-  String flightDate;
-  String airlineCode;
-  String flightNumber;
-  String origin;
-  String originCity;
-  String originState;
-  int originWac;
-  String dest;
-  String destCity;
-  String destState;
-  int destWac;
-  int crsDepTime;
-  int depTime;
-  int crsArrTime;
-  int arrTime;
-  int cancelled;
-  int diverted;
-  int distance;
+  String flightDate;       // when the flight was (or was supposed to be)
+  String airlineCode;      // like "AA" for American, "DL" for Delta, etc.
+  String flightNumber;     // the actual flight number, e.g. "1234"
+  String origin;           // airport code where it took off from
+  String originCity;       // city name for the origin
+  String originState;      // state abbreviation for the origin
+  int originWac;           // some government region code honestly not sure what WAC stands for
+  String dest;             // airport code where it's headed
+  String destCity;         // destination city name
+  String destState;        // destination state
+  int destWac;             // same region code thing but for destination
+  int crsDepTime;          // the scheduled departure time (in hhmm format like 1430 = 2:30pm)
+  int depTime;             // when it actually departed
+  int crsArrTime;          // scheduled arrival
+  int arrTime;             // actual arrival
+  int cancelled;           // 1 if it got cancelled, 0 if not
+  int diverted;            // 1 if it got diverted somewhere else
+  int distance;            // how far the flight is in miles
 
+  // takes a row from the CSV and pulls out each column
+  // using safeGet so it doesn't crash if a column is missing or empty
   Flight(String[] row) {
     flightDate   = safeGet(row, 0);
     airlineCode  = safeGet(row, 1);
@@ -39,31 +43,40 @@ class Flight {
     distance     = safeInt(safeGet(row, 17));
   }
 
+  // figures out how late (or early) the flight departed in minutes
+  // positive = late, negative = early
   int getDepartureDelay() {
+    // if it was cancelled or we don't have real times, just say 0
     if (cancelled == 1 || depTime == 0 || crsDepTime == 0) return 0;
 
     int delay = hhmmToMinutes(depTime) - hhmmToMinutes(crsDepTime);
 
+    // these handle the midnight wraparound edge case
+    // e.g. scheduled at 11:50pm, departed at 12:10am — that's a 20 min delay not a -1420 min one
     if (delay < -720) delay += 1440;
     if (delay > 720) delay -= 1440;
 
     return delay;
   }
 
+  // just sticks the airline code and flight number together like "AA 1234"
   String getFlightCode() {
     return trim(airlineCode + " " + flightNumber);
   }
 
+  // normalises the date into a sortable key so we can group/compare dates easily
   String getDateKey() {
     return normalizeDateKey(flightDate);
   }
 
+  // returns a nice readable label for how delayed the flight was
+  // or just says "Cancelled"/"Diverted" if that happened
   String getDelayLabel() {
     if (cancelled == 1) return "Cancelled";
     if (diverted == 1) return "Diverted";
 
     int delay = getDepartureDelay();
-    String prefix = delay > 0 ? "+" : "";
+    String prefix = delay > 0 ? "+" : "";  // add a plus sign so it's obvious it's late
     return "Delay " + prefix + delay + " min";
   }
 }
